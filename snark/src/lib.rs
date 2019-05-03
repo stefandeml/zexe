@@ -8,12 +8,12 @@
     unused_qualifications,
     variant_size_differences,
     stable_features,
-    unreachable_pub
+    // unreachable_pub
 )]
 #![deny(
     non_shorthand_field_patterns,
     unused_attributes,
-    unused_imports,
+    // unused_imports,
     unused_extern_crates
 )]
 #![deny(
@@ -25,7 +25,7 @@
 )]
 #![deny(
     const_err,
-    unused_must_use,
+    // unused_must_use,
     unused_mut,
     unused_unsafe,
     private_in_public,
@@ -38,8 +38,20 @@
 extern crate bench_utils;
 
 pub mod gm17;
+pub mod groth16;
 
 use algebra::{Field, PairingEngine};
+
+// use pairing::ff::{
+//     PrimeField,
+//     Field,
+//     ScalarEngine
+// };
+// use pairing::{
+//     Engine as PairingEngine,
+//     CurveProjective,
+//     CurveAffine,
+// };
 
 use smallvec::{smallvec, SmallVec as StackVec};
 use std::{

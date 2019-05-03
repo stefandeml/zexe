@@ -160,7 +160,7 @@ where
             let g_psi_prep = P::prepare_g1(cs.ns(|| "Third prep"), &g_psi)?;
 
             let c_prep = P::prepare_g1(cs.ns(|| "Fourth prep"), &proof.c)?;
-
+            println!("Constraints before Miller loop {:?} ", cs.num_constraints());
             P::miller_loop(
                 cs.ns(|| "Miller loop 1"),
                 &[
@@ -178,8 +178,11 @@ where
             )?
         };
 
+        println!("Constraints after miller loop 1/ \
+        before final exp {:?} ", cs.num_constraints());
         let test1 = P::final_exponentiation(cs.ns(|| "Final Exp 1"), &test1_exp).unwrap();
-
+        
+        println!("Constraints after final exp {:?} ", cs.num_constraints());
         // e(A, H^{gamma}) = e(G^{gamma}, B)
         let test2_exp = {
             let a_prep = P::prepare_g1(cs.ns(|| "Fifth prep"), &proof.a)?;
@@ -187,17 +190,25 @@ where
             //&pvk.g_gamma_pc
             let proof_b = proof.b.negate(cs.ns(|| "Negate b"))?;
             let b_prep = P::prepare_g2(cs.ns(|| "Sixth prep"), &proof_b)?;
+            println!("Constraints before Miller loop 2 {:?} ", cs.num_constraints());
             P::miller_loop(
                 cs.ns(|| "Miller loop 4"),
                 &[a_prep, pvk.g_gamma_pc.clone()],
                 &[pvk.h_gamma_pc.clone(), b_prep],
             )?
+
         };
+        println!("Constraints after miller loop 2/before final exp 2 {:?} ", cs.num_constraints());
         let test2 = P::final_exponentiation(cs.ns(|| "Final Exp 2"), &test2_exp)?;
+        println!("Constraints after final exp 2 {:?} ", cs.num_constraints());
 
         let one = P::GTGadget::one(cs.ns(|| "GT One"))?;
+        println!("Constraints after adding one{:?} ", cs.num_constraints());
         test1.enforce_equal(cs.ns(|| "Test 1"), &one)?;
+
+        println!("Constraints after test 1 {:?} ", cs.num_constraints());
         test2.enforce_equal(cs.ns(|| "Test 2"), &one)?;
+        println!("Constraints after test 2 {:?} ", cs.num_constraints());
         Ok(())
     }
 }
@@ -277,9 +288,12 @@ where
                 h_gamma_g2,
                 query,
             } = vk.borrow().clone();
+            println!("before g2 gadget {:?}", cs.num_constraints());
             let h_g2 = P::G2Gadget::alloc_input(cs.ns(|| "h_g2"), || Ok(h_g2.into_projective()))?;
+            println!("after g2 gadget {:?}", cs.num_constraints());
             let g_alpha_g1 =
                 P::G1Gadget::alloc_input(cs.ns(|| "g_alpha"), || Ok(g_alpha_g1.into_projective()))?;
+            println!("after g1 gadget {:?}", cs.num_constraints());
             let h_beta_g2 =
                 P::G2Gadget::alloc_input(cs.ns(|| "h_beta"), || Ok(h_beta_g2.into_projective()))?;
             let g_gamma_g1 = P::G1Gadget::alloc_input(cs.ns(|| "g_gamma_g1"), || {
@@ -331,7 +345,9 @@ where
         value_gen().and_then(|proof| {
             let Proof { a, b, c } = proof.borrow().clone();
             let a = P::G1Gadget::alloc_checked(cs.ns(|| "a"), || Ok(a.into_projective()))?;
+            println!("Constraints after G1 Gadget {:?}", cs.num_constraints());
             let b = P::G2Gadget::alloc_checked(cs.ns(|| "b"), || Ok(b.into_projective()))?;
+            println!("Constraints after G2 Gadget {:?}", cs.num_constraints());
             let c = P::G1Gadget::alloc_checked(cs.ns(|| "c"), || Ok(c.into_projective()))?;
             Ok(Self { a, b, c })
         })
@@ -473,7 +489,7 @@ mod test {
 
     #[test]
     fn gm17_verifier_test() {
-        let num_inputs = 100;
+        let num_inputs = 4;
         let num_constraints = num_inputs;
         let rng = &mut thread_rng();
         let mut inputs: Vec<Option<Fr>> = Vec::with_capacity(num_inputs);
@@ -514,6 +530,7 @@ mod test {
                     // Input must be in little-endian, but BitIterator outputs in big-endian.
                     input_bits.reverse();
 
+                    println!("Input lenghts {:?}", input_bits.len());
                     let input_bits =
                         Vec::<Boolean>::alloc_input(cs.ns(|| format!("Input {}", i)), || {
                             Ok(input_bits)
@@ -522,11 +539,17 @@ mod test {
                     input_gadgets.push(input_bits);
                 }
             }
+            println!("Len of input gadgets {:?}", input_gadgets.len());
+            println!("Constraints before Vk {:?}", cs.num_constraints());
 
             let vk_gadget = TestVkGadget::alloc_input(cs.ns(|| "Vk"), || Ok(&params.vk)).unwrap();
+            println!("Constraints after Vk Gadget {:?}", cs.num_constraints());
+
+//            checks if vk elements on curve  ... why is that necessary .. public input?
             let proof_gadget =
                 TestProofGadget::alloc(cs.ns(|| "Proof"), || Ok(proof.clone())).unwrap();
-            println!("Time to verify!\n\n\n\n");
+            println!("Constraints after Proof Gadget {:?}", cs.num_constraints());
+//           checks if on curve and if in correct subgroup
             <TestVerifierGadget as NIZKVerifierGadget<TestProofSystem, SW6>>::check_verify(
                 cs.ns(|| "Verify"),
                 &vk_gadget,
@@ -534,11 +557,15 @@ mod test {
                 &proof_gadget,
             )
             .unwrap();
+            println!("Constraints after Verfier Gadget {:?}, for {:?} inputs ", cs
+                .num_constraints(),
+                     num_inputs);
+
             if !cs.is_satisfied() {
                 println!("=========================================================");
                 println!("Unsatisfied constraints:");
                 println!("{:?}", cs.which_is_unsatisfied().unwrap());
-                println!("=========================================================");
+                println!("====================================================c=====");
             }
 
             // cs.print_named_objects();
