@@ -25,6 +25,11 @@ use rand::Rng;
 //     Scalar
 // };
 
+// use variable base scalar multiexp with density support:
+use super::multiexp::*;
+// use mock for multiexp worker
+use super::singlecore::Worker as MulExpWorker;
+
 use super::source::{
     DensityTracker,
     FullDensity
@@ -43,10 +48,6 @@ use std::{
     ops::{AddAssign, MulAssign},
     sync::Arc,
 };
-
-use super::multiexp::*;
-
-use super::singlecore::Worker as MulExpWorker;
 
 use algebra::fft::multicore::Worker;
 
@@ -181,7 +182,7 @@ impl<E:PairingEngine> PreparedProver<E> {
         s: E::Fr
     ) -> Result<Proof<E>, SynthesisError>
     {
-        let verbose = true;
+        let verbose = false;
 
         let prover = self.assignment.clone();
         let worker = Worker::new();
@@ -434,7 +435,7 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
 ) -> Result<Proof<E>, SynthesisError>
     where E: PairingEngine, C: Circuit<E>
 {
-    let verbose = true;
+    let verbose = false;
 
     let mut prover = ProvingAssignment {
         a_aux_density: DensityTracker::new(),

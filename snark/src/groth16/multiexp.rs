@@ -1,3 +1,5 @@
+// we need this version for multi base scalar multiexp to have  density support
+
 use algebra::{
     AffineCurve as CurveAffine, Field, PairingEngine,  PrimeField,  ProjectiveCurve as CurveProjective, BigInteger, PairingCurve
 };

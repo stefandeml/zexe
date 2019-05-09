@@ -3,6 +3,8 @@ use rand::Rng;
 
 pub mod gm17;
 pub use self::gm17::Gm17;
+pub mod groth16;
+pub use self::groth16::Groth16;
 
 use failure::Error;
 

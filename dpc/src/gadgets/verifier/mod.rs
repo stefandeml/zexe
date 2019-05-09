@@ -5,6 +5,7 @@ use crate::crypto_primitives::nizk::NIZK;
 use snark_gadgets::utils::{AllocGadget, ToBitsGadget, ToBytesGadget};
 
 pub mod gm17;
+pub mod groth16;
 
 pub trait NIZKVerifierGadget<N: NIZK, E: PairingEngine> {
     type VerificationKeyGadget: AllocGadget<N::VerificationParameters, E> + ToBytesGadget<E>;

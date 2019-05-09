@@ -37,7 +37,7 @@ use crate::{
 //     EvaluationDomain,
 //     Scalar
 // };
-
+// use domain by zExe
 use algebra::fft::domain::{
     EvaluationDomain,
     Scalar
@@ -46,8 +46,9 @@ use algebra::fft::domain::{
 // use crate::worker::{
 //     Worker
 // };
-use super::singlecore::Worker as MulExpWorker;
+
 use algebra::fft::multicore::Worker;
+
 /// Generates a random common reference string for
 /// a circuit.
 pub fn generate_random_parameters<E, C, R>(

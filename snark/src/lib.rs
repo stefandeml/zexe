@@ -8,12 +8,10 @@
     unused_qualifications,
     variant_size_differences,
     stable_features,
-    // unreachable_pub
 )]
 #![deny(
     non_shorthand_field_patterns,
     unused_attributes,
-    // unused_imports,
     unused_extern_crates
 )]
 #![deny(

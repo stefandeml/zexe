@@ -1,5 +1,6 @@
-//! This is a dummy interface to substitute multicore worker
-//! in environments like WASM
+// Need to add this dummy interface for the multicore worker to be dependend on the 
+// external dependencies for mutlicore
+
 use std::marker::PhantomData;
 
 use futures::{Future, IntoFuture, Poll};

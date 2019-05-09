@@ -17,9 +17,6 @@ use std::sync::Arc;
 // #[cfg(test)]
 // mod tests;
 
-// mod generator;
-// mod prover;
-// mod verifier;
 mod group;
 mod singlecore;
 mod source;
@@ -32,6 +29,10 @@ pub use self::source::*;
 pub use self::generator::*;
 pub use self::prover::*;
 pub use self::verifier::*;
+
+#[cfg(test)]
+mod test;
+
 
 #[derive(Debug, Clone)]
 pub struct Proof<E: PairingEngine> {
@@ -67,6 +68,9 @@ impl<E: PairingEngine> Default for Proof<E> {
         }
     }
 }
+
+// keep this for now as serialisation  might be useful and currently
+// throws not implemented exception in zexe
 
 // impl<E: PairingEngine> Proof<E> {
 //     pub fn write<W: Write>(
@@ -195,7 +199,8 @@ impl<E: PairingEngine> ToBytes for VerifyingKey<E> {
     }
 }
 
-
+// keep this for now as serialisation  might be useful and currently
+// throws not implemented exception in zexe
 // impl<E: PairingEngine> VerifyingKey<E> {
 //     pub fn write<W: Write>(
 //         &self,
@@ -308,6 +313,8 @@ impl<E: PairingEngine> PartialEq for Parameters<E> {
     }
 }
 
+// keep this for now as serialisation  might be useful and currently
+// throws not implemented exception in zexe
 // impl<E: PairingEngine> Parameters<E> {
 //     pub fn write<W: Write>(
 //         &self,
@@ -441,16 +448,46 @@ impl<E: PairingEngine> PartialEq for Parameters<E> {
 //     }
 // }
 
+#[derive(Clone)]
 pub struct PreparedVerifyingKey<E: PairingEngine> {
-    /// Pairing result of alpha*beta
-    alpha_g1_beta_g2: E::Fqk,
+    // Add VerificationKey 
+    pub vk: VerifyingKey<E>,
+   /// Pairing result of alpha*beta
+    pub alpha_g1_beta_g2: E::Fqk,
     /// -gamma in G2
-    neg_gamma_g2: <E::G2Affine as PairingCurve>::Prepared,
+    pub neg_gamma_g2: <E::G2Affine as PairingCurve>::Prepared,
     /// -delta in G2
-    neg_delta_g2: <E::G2Affine as PairingCurve>::Prepared,
+    pub neg_delta_g2: <E::G2Affine as PairingCurve>::Prepared,
     /// Copy of IC from `VerifiyingKey`.
-    ic: Vec<E::G1Affine>
+    //TODO: delete that one!
+    pub ic: Vec<E::G1Affine>
 }
+
+
+impl<E: PairingEngine> From<PreparedVerifyingKey<E>> for VerifyingKey<E> {
+    fn from(other: PreparedVerifyingKey<E>) -> Self {
+        other.vk
+    }
+}
+
+impl<E: PairingEngine> From<VerifyingKey<E>> for PreparedVerifyingKey<E> {
+    fn from(other: VerifyingKey<E>) -> Self {
+        prepare_verifying_key(&other)
+    }
+}
+
+impl<E: PairingEngine> Default for PreparedVerifyingKey<E> {
+    fn default() -> Self {
+        Self {
+            vk:                VerifyingKey::default(),
+            alpha_g1_beta_g2:          E::Fqk::default(),
+            neg_gamma_g2:            <E::G2Affine as PairingCurve>::Prepared::default(),
+            neg_delta_g2: <E::G2Affine as PairingCurve>::Prepared::default(),
+            ic:             Vec::new(),
+        }
+    }
+}
+
 
 impl<E: PairingEngine> Parameters<E> {
     pub fn get_vk(&self, _: usize) -> Result<VerifyingKey<E>, SynthesisError> {

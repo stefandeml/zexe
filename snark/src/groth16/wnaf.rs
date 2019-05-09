@@ -1,4 +1,4 @@
-// use super::{CurveProjex,  PrimeFieldRepr};
+// generator uses weighted non-adjacent form, hence we add this here for now
 
 use algebra::{
 PrimeField, ProjectiveCurve as CurveProjective, BigInteger

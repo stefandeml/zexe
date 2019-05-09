@@ -10,6 +10,10 @@
 //     PrimeFieldRepr,
 //     ScalarEngine};
 
+// multiexp is using a technicality of used pippenger version in multiexp:
+// it says which bases exist ,since some polynomials might evaluate to zero 
+// (e.g., the variable is not a part of any constraints, for B - it only participates in A)
+// so you don't include these bases in the generated parameters (pk/vk)
 
 use algebra::{
     AffineCurve as CurveAffine, Field, PairingEngine as Engine, PrimeField,  ProjectiveCurve as CurveProjective,
