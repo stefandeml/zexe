@@ -14,7 +14,7 @@
 #![deny(
     non_shorthand_field_patterns,
     unused_attributes,
-    unused_imports,
+    // unused_imports,
     unused_extern_crates
 )]
 #![deny(
