@@ -12,6 +12,7 @@ use snark_gadgets::{
 pub mod blake2s;
 pub mod myblake2; 
 pub mod circuit;
+pub mod myAllocatedBit;
 
 pub trait PRFGadget<P: PRF, E: PairingEngine> {
     type OutputGadget: EqGadget<E> + ToBytesGadget<E> + AllocGadget<P::Output, E> + Clone + Debug;

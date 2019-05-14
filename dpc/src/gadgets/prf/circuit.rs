@@ -20,7 +20,7 @@ use snark::{
     },
     Circuit, ConstraintSystem, SynthesisError,
 };
-use algebra::{curves::bls12_377::Bls12_377, fields::bls12_377::Fr, PairingEngine};
+use algebra::{curves::bls12_377::Bls12_377, fields::bls12_377::Fr, PairingEngine, fields::models::Fp256};
 use rand::{thread_rng, Rand};
 
 use snark_gadgets::{
@@ -28,7 +28,7 @@ use snark_gadgets::{
     utils::{AllocGadget, ConditionalEqGadget, ConditionalOrEqualsGadget, ToBytesGadget},
 };
 
-
+use super::myAllocatedBit::myAllocatedBit;
 
 // We have some dummy input variable.
 #[derive(Debug, Clone, Copy)]
@@ -51,6 +51,8 @@ impl<E: PairingEngine> Circuit<E> for Blake2sBench<E> {
         let data: Vec<u8> = (0..input_len).map(|_| rng.gen()).collect();
         println!("#Number of bytes: {}", data.len());
 
+        let mybit = myAllocatedBit::alloc(cs.ns(|| "peter"), || Ok(true));
+    
         let mut input_bits = vec![];
 
         for (byte_i, input_byte) in data.into_iter().enumerate() {
@@ -85,7 +87,7 @@ use snark::{
     Circuit, ConstraintSystem, SynthesisError,
 };
 use algebra::{curves::bls12_377::Bls12_377, fields::bls12_377::Fr};
-
+use std::str::FromStr;
     use super::Blake2sBench;
 
     #[test]
@@ -104,7 +106,8 @@ use algebra::{curves::bls12_377::Bls12_377, fields::bls12_377::Fr};
 
         let pvk = prepare_verifying_key::<Bls12_377>(&params.vk);
 
-        let dummy = Some(Fr::rand(rng)); 
+        let dummy = Some(Fr::from_str("10").unwrap());
+        // let dummy = Some(Fr::rand(rng)); 
         // Create an instance of circuit
         let c = Blake2sBench::<Bls12_377> {
             num_bytes: 192,
