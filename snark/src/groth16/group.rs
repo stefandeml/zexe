@@ -1,6 +1,5 @@
 use algebra::{
-    Field, PairingEngine as Engine, PrimeField,
-    ProjectiveCurve as CurveProjective, SquareRootField,
+    Field, PairingEngine as Engine, PrimeField, ProjectiveCurve as CurveProjective, SquareRootField,
 };
 
 pub trait Group: Sized + Copy + Clone + Send + Sync {

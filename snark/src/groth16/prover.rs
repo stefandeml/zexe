@@ -3,7 +3,7 @@ use rand::Rng;
 // use variable base scalar multiexp with density support:
 use super::multiexp::*;
 // use mock for multiexp worker
-use super::singlecore::Worker as MulExpWorker;
+use super::multicore::Worker as MulExpWorker;
 
 use super::source::{DensityTracker, FullDensity};
 use algebra::{

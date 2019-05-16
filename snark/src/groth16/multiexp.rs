@@ -5,7 +5,7 @@ use algebra::{
     ProjectiveCurve as CurveProjective,
 };
 
-use super::{singlecore::Worker, source::*};
+use super::{multicore::Worker, source::*};
 use crate::SynthesisError;
 use futures::Future;
 use std::sync::Arc;
