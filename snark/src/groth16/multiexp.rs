@@ -19,7 +19,8 @@ use algebra::{
 use std::sync::Arc;
 use super::source::*;
 use futures::Future;
-use super::singlecore::Worker;
+// use super::singlecore::Worker;
+use super::multicore::Worker;
 use crate::SynthesisError;
 
 /// This genious piece of code works in the following way:

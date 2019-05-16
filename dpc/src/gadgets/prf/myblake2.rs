@@ -334,121 +334,127 @@ pub fn blake2s<E: Engine, CS: ConstraintSystem<E>>(
     Ok(h.iter().flat_map(|b| b.to_bits_le()).collect())
 }
 
-// #[cfg(test)]
-// mod test {
-//     use rand::{XorShiftRng, SeedableRng, Rng};
-//     use pairing::bls12_381::{Bls12};
-//     use ::circuit::boolean::{Boolean, AllocatedBit};
-//     use ::circuit::test::TestConstraintSystem;
-//     use super::blake2s;
-//     use bellman::{ConstraintSystem};
-//     use blake2_rfc::blake2s::Blake2s;
+#[cfg(test)]
+mod test {
+    use rand::{XorShiftRng, SeedableRng, Rng};
+    // use pairing::bls12_381::{Bls12};
+    // use ::circuit::boolean::{Boolean, AllocatedBit};
+    // use ::circuit::test::TestConstraintSystem;
+    // use bellman::{ConstraintSystem};
+    // use blake2_rfc::blake2s::Blake2s;
 
-//     #[test]
-//     fn test_blank_hash() {
-//         let mut cs = TestConstraintSystem::<Bls12>::new();
-//         let input_bits = vec![];
-//         let out = blake2s(&mut cs, &input_bits, b"12345678").unwrap();
-//         assert!(cs.is_satisfied());
-//         assert_eq!(cs.num_constraints(), 0);
+    use super::blake2s;
+    use snark_gadgets::bits::boolean::{AllocatedBit, Boolean};
+    use snark_gadgets::test_constraint_system::TestConstraintSystem;
+    use algebra::{curves::bls12_381::Bls12_381 as Bls12, fields::bls12_381::Fr};
+    use snark::ConstraintSystem;
+    use snark_gadgets::utils::AllocGadget;
 
-//         // >>> import blake2s from hashlib
-//         // >>> h = blake2s(digest_size=32, person=b'12345678')
-//         // >>> h.hexdigest()
-//         let expected = hex!("c59f682376d137f3f255e671e207d1f2374ebe504e9314208a52d9f88d69e8c8");
+    // #[test]
+    // fn test_blank_hash() {
+    //     let mut cs = TestConstraintSystem::<Bls12>::new();
+    //     let input_bits = vec![];
+    //     let out = blake2s(&mut cs, &input_bits, b"12345678").unwrap();
+    //     assert!(cs.is_satisfied());
+    //     assert_eq!(cs.num_constraints(), 0);
 
-//         let mut out = out.into_iter();
-//         for b in expected.into_iter() {
-//             for i in 0..8 {
-//                 let c = out.next().unwrap().get_value().unwrap();
+    //     // >>> import blake2s from hashlib
+    //     // >>> h = blake2s(digest_size=32, person=b'12345678')
+    //     // >>> h.hexdigest()
+    //     let expected = hex!("c59f682376d137f3f255e671e207d1f2374ebe504e9314208a52d9f88d69e8c8");
 
-//                 assert_eq!(c, (b >> i) & 1u8 == 1u8);
-//             }
-//         }
-//     }
+    //     let mut out = out.into_iter();
+    //     for b in expected.into_iter() {
+    //         for i in 0..8 {
+    //             let c = out.next().unwrap().get_value().unwrap();
 
-//     #[test]
-//     fn test_blake2s_constraints() {
-//         let mut cs = TestConstraintSystem::<Bls12>::new();
-//         let input_bits: Vec<_> = (0..512).map(|i| AllocatedBit::alloc(cs.namespace(|| format!("input bit {}", i)), Some(true)).unwrap().into()).collect();
-//         blake2s(&mut cs, &input_bits, b"12345678").unwrap();
-//         assert!(cs.is_satisfied());
-//         assert_eq!(cs.num_constraints(), 21518);
-//     }
+    //             assert_eq!(c, (b >> i) & 1u8 == 1u8);
+    //         }
+    //     }
+    // }
 
-//     #[test]
-//     fn test_blake2s_precomp_constraints() {
-//         // Test that 512 fixed leading bits (constants)
-//         // doesn't result in more constraints.
+    #[test]
+    fn test_blake2s_constraints() {
+        let mut cs = TestConstraintSystem::<Bls12>::new();
+        let input_bits: Vec<_> = (0..512).map(|i| AllocatedBit::alloc(cs.ns(|| format!("input bit {}", i)), || Ok(true)).unwrap().into()).collect();
+        // let input_bits: Vec<_> = (0..512).map(|i| AllocatedBit::alloc(cs.namespace(|| format!("input bit {}", i)), Some(true)).unwrap().into()).collect();
+        blake2s(&mut cs, &input_bits, b"12345678").unwrap();
+        assert!(cs.is_satisfied());
+        // assert_eq!(cs.num_constraints(), 21518);
+    }
+    // #[test]
+    // fn test_blake2s_precomp_constraints() {
+    //     // Test that 512 fixed leading bits (constants)
+    //     // doesn't result in more constraints.
 
-//         let mut cs = TestConstraintSystem::<Bls12>::new();
-//         let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
-//         let input_bits: Vec<_> = (0..512)
-//           .map(|_| Boolean::constant(rng.gen()))
-//           .chain((0..512)
-//                         .map(|i| AllocatedBit::alloc(cs.namespace(|| format!("input bit {}", i)), Some(true)).unwrap().into()))
-//           .collect();
-//         blake2s(&mut cs, &input_bits, b"12345678").unwrap();
-//         assert!(cs.is_satisfied());
-//         assert_eq!(cs.num_constraints(), 21518);
-//     }
+    //     let mut cs = TestConstraintSystem::<Bls12>::new();
+    //     let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+    //     let input_bits: Vec<_> = (0..512)
+    //       .map(|_| Boolean::constant(rng.gen()))
+    //       .chain((0..512)
+    //                     .map(|i| AllocatedBit::alloc(cs.namespace(|| format!("input bit {}", i)), Some(true)).unwrap().into()))
+    //       .collect();
+    //     blake2s(&mut cs, &input_bits, b"12345678").unwrap();
+    //     assert!(cs.is_satisfied());
+    //     assert_eq!(cs.num_constraints(), 21518);
+    // }
 
-//     #[test]
-//     fn test_blake2s_constant_constraints() {
-//         let mut cs = TestConstraintSystem::<Bls12>::new();
-//         let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
-//         let input_bits: Vec<_> = (0..512).map(|_| Boolean::constant(rng.gen())).collect();
-//         blake2s(&mut cs, &input_bits, b"12345678").unwrap();
-//         assert_eq!(cs.num_constraints(), 0);
-//     }
+    // #[test]
+    // fn test_blake2s_constant_constraints() {
+    //     let mut cs = TestConstraintSystem::<Bls12>::new();
+    //     let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+    //     let input_bits: Vec<_> = (0..512).map(|_| Boolean::constant(rng.gen())).collect();
+    //     blake2s(&mut cs, &input_bits, b"12345678").unwrap();
+    //     assert_eq!(cs.num_constraints(), 0);
+    // }
 
-//     #[test]
-//     fn test_blake2s() {
-//         let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+    // #[test]
+    // fn test_blake2s() {
+    //     let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
 
-//         for input_len in (0..32).chain((32..256).filter(|a| a % 8 == 0))
-//         {
-//             let mut h = Blake2s::with_params(32, &[], &[], b"12345678");
+    //     for input_len in (0..32).chain((32..256).filter(|a| a % 8 == 0))
+    //     {
+    //         let mut h = Blake2s::with_params(32, &[], &[], b"12345678");
 
-//             let data: Vec<u8> = (0..input_len).map(|_| rng.gen()).collect();
+    //         let data: Vec<u8> = (0..input_len).map(|_| rng.gen()).collect();
 
-//             h.update(&data);
+    //         h.update(&data);
 
-//             let hash_result = h.finalize();
+    //         let hash_result = h.finalize();
 
-//             let mut cs = TestConstraintSystem::<Bls12>::new();
+    //         let mut cs = TestConstraintSystem::<Bls12>::new();
 
-//             let mut input_bits = vec![];
+    //         let mut input_bits = vec![];
 
-//             for (byte_i, input_byte) in data.into_iter().enumerate() {
-//                 for bit_i in 0..8 {
-//                     let cs = cs.namespace(|| format!("input bit {} {}", byte_i, bit_i));
+    //         for (byte_i, input_byte) in data.into_iter().enumerate() {
+    //             for bit_i in 0..8 {
+    //                 let cs = cs.namespace(|| format!("input bit {} {}", byte_i, bit_i));
 
-//                     input_bits.push(AllocatedBit::alloc(cs, Some((input_byte >> bit_i) & 1u8 == 1u8)).unwrap().into());
-//                 }
-//             }
+    //                 input_bits.push(AllocatedBit::alloc(cs, Some((input_byte >> bit_i) & 1u8 == 1u8)).unwrap().into());
+    //             }
+    //         }
 
-//             let r = blake2s(&mut cs, &input_bits, b"12345678").unwrap();
+    //         let r = blake2s(&mut cs, &input_bits, b"12345678").unwrap();
 
-//             assert!(cs.is_satisfied());
+    //         assert!(cs.is_satisfied());
 
-//             let mut s = hash_result.as_ref().iter()
-//                                             .flat_map(|&byte| (0..8).map(move |i| (byte >> i) & 1u8 == 1u8));
+    //         let mut s = hash_result.as_ref().iter()
+    //                                         .flat_map(|&byte| (0..8).map(move |i| (byte >> i) & 1u8 == 1u8));
 
-//             for b in r {
-//                 match b {
-//                     Boolean::Is(b) => {
-//                         assert!(s.next().unwrap() == b.get_value().unwrap());
-//                     },
-//                     Boolean::Not(b) => {
-//                         assert!(s.next().unwrap() != b.get_value().unwrap());
-//                     },
-//                     Boolean::Constant(b) => {
-//                         assert!(input_len == 0);
-//                         assert!(s.next().unwrap() == b);
-//                     }
-//                 }
-//             }
-//         }
-//     }
-// }
+    //         for b in r {
+    //             match b {
+    //                 Boolean::Is(b) => {
+    //                     assert!(s.next().unwrap() == b.get_value().unwrap());
+    //                 },
+    //                 Boolean::Not(b) => {
+    //                     assert!(s.next().unwrap() != b.get_value().unwrap());
+    //                 },
+    //                 Boolean::Constant(b) => {
+    //                     assert!(input_len == 0);
+    //                     assert!(s.next().unwrap() == b);
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+}

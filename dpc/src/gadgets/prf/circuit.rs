@@ -78,43 +78,125 @@ impl<E: PairingEngine> Circuit<E> for Blake2sBench<E> {
 mod test{
 use rand::{thread_rng, Rand};
 use snark::{
-    // gm17::{
-    groth16::{
+    gm17::{
+    // groth16::{
         create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
     },
     Circuit, ConstraintSystem, SynthesisError,
 };
-use algebra::{curves::bls12_377::Bls12_377, fields::bls12_377::Fr};
-
+    use algebra::{curves::sw6::SW6, fields::sw6::Fr as Fr_SW6};
+    use algebra::{curves::bls12_377::Bls12_377, fields::bls12_377::Fr as Fr_Bls12_377};
+    use algebra::{curves::bls12_381::Bls12_381, fields::bls12_381::Fr as Fr_Bls12_381};
     use super::Blake2sBench;
 
     #[test]
-    fn prove_and_verify_cicruit() {
-
+    fn prove_and_verify_blake2s_cicruit_bls12_377() {
+        
+        type Curve = Bls12_377;
+        type Fr = Fr_Bls12_377;
+        let num_bytes = 384;
         let rng = &mut thread_rng();
-
+        let setup_time = timer_start!(|| "{Bls12_377}::Setup");
         let params = {
-            let c = Blake2sBench::<Bls12_377> {
-                num_bytes: 192,
+            let c = Blake2sBench::<Curve> {
+                num_bytes: num_bytes,
                 dummy: None,
             };
-
             generate_random_parameters(c, rng).unwrap()
         };
+        timer_end!(setup_time);
 
-        let pvk = prepare_verifying_key::<Bls12_377>(&params.vk);
+        let prep_vk_time = timer_start!(|| "{Bls12_377}::Verification Key");
+        let pvk = prepare_verifying_key::<Curve>(&params.vk);
+        timer_end!(prep_vk_time);
 
         let dummy = Some(Fr::rand(rng)); 
         // Create an instance of circuit
-        let c = Blake2sBench::<Bls12_377> {
-            num_bytes: 192,
+        let c = Blake2sBench::<Curve> {
+            num_bytes: num_bytes,
             dummy: dummy,
         };
 
         // Create a groth16 proof with our parameters.
+        let proof_time = timer_start!(|| "{Bls12_377}::Generate Proof");
         let proof = create_random_proof(c, &params, rng).unwrap();
+        timer_end!(proof_time);
 
         assert!(verify_proof(&pvk, &proof, &[dummy.unwrap()]).unwrap());
 
-        }
+    }
+
+    #[test]
+    fn prove_and_verify_blake2s_cicruit_bls12_381() {
+        
+        type Curve = Bls12_381;
+        type Fr = Fr_Bls12_381;
+        let num_bytes = 384;        
+        let rng = &mut thread_rng();
+        let setup_time = timer_start!(|| "{Bls12_381}::Setup");
+        let params = {
+            let c = Blake2sBench::<Curve> {
+                num_bytes: num_bytes,
+                dummy: None,
+            };
+            generate_random_parameters(c, rng).unwrap()
+        };
+        timer_end!(setup_time);
+
+        let prep_vk_time = timer_start!(|| "{Bls12_381}::Verification Key");
+        let pvk = prepare_verifying_key::<Curve>(&params.vk);
+        timer_end!(prep_vk_time);
+
+        let dummy = Some(Fr::rand(rng)); 
+        // Create an instance of circuit
+        let c = Blake2sBench::<Curve> {
+            num_bytes: num_bytes,
+            dummy: dummy,
+        };
+
+        // Create a groth16 proof with our parameters.
+        let proof_time = timer_start!(|| "{Bls12_381}::Generate Proof");
+        let proof = create_random_proof(c, &params, rng).unwrap();
+        timer_end!(proof_time);
+
+        assert!(verify_proof(&pvk, &proof, &[dummy.unwrap()]).unwrap());
+
+    }
+    #[test]
+    fn prove_and_verify_blake2s_cicruit_sw6() {
+        
+        type Curve = SW6;;
+        type Fr = Fr_SW6;
+        let num_bytes = 3072;        
+        let rng = &mut thread_rng();
+        let setup_time = timer_start!(|| "{SW6}::Setup");
+        let params = {
+            let c = Blake2sBench::<Curve> {
+                num_bytes: num_bytes,
+                dummy: None,
+            };
+            generate_random_parameters(c, rng).unwrap()
+        };
+        timer_end!(setup_time);
+
+        let prep_vk_time = timer_start!(|| "{SW6}::Verification Key");
+        let pvk = prepare_verifying_key::<Curve>(&params.vk);
+        timer_end!(prep_vk_time);
+
+        let dummy = Some(Fr::rand(rng)); 
+        // Create an instance of circuit
+        let c = Blake2sBench::<Curve> {
+            num_bytes: num_bytes,
+            dummy: dummy,
+        };
+
+        // Create a groth16 proof with our parameters.
+        let proof_time = timer_start!(|| "{SW6}::Generate Proof");
+        let proof = create_random_proof(c, &params, rng).unwrap();
+        timer_end!(proof_time);
+
+        assert!(verify_proof(&pvk, &proof, &[dummy.unwrap()]).unwrap());
+
+    }
+
     }

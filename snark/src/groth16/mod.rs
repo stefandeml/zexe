@@ -18,7 +18,8 @@ use std::sync::Arc;
 // mod tests;
 
 mod group;
-mod singlecore;
+// mod singlecore;
+mod multicore;
 mod source;
 mod prover;
 mod multiexp;
