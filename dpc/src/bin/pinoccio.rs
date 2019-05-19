@@ -17,6 +17,7 @@ use std::{
     collections::HashMap,
     fs::File,
     io::{BufRead, BufReader, Error, Write},
+    marker::PhantomData,
     ops::{Mul, Neg},
     str::FromStr,
 };
@@ -26,7 +27,7 @@ enum Wire<E: PairingEngine> {
     Fp(FpGadget<E>),
 }
 
-pub struct PinccioReader<E: PairingEngine> {
+pub struct PinccioReader<E: PairingEngine, CS: ConstraintSystem<E>> {
     num_inputs:      usize,
     num_nizk_inputs: usize,
     num_outputs:     usize,
@@ -39,10 +40,15 @@ pub struct PinccioReader<E: PairingEngine> {
     output_wire_ids: Vec<usize>,
 
     wire_values: HashMap<u64, Wire<E>>,
+    dummy:       PhantomData<CS>,
 }
 
-impl<E: PairingEngine> PinccioReader<E> {
-    pub fn parsePinoccio(path_circuit: &str, path_inputs: &str) -> Result<Self, Error> {
+impl<E: PairingEngine, CS: ConstraintSystem<E>> PinccioReader<E, CS> {
+    pub fn parsePinoccio(
+        cs: &mut CS,
+        path_circuit: &str,
+        path_inputs: &str,
+    ) -> Result<Self, Error> {
         lazy_static! {
             static ref PINOCCHIO_INSTRUCTION: Regex =
                 Regex::new(r"([\w|-]+) in (\d+) <([^>]+)> out (\d+) <([^>]+)>").unwrap();
@@ -59,7 +65,7 @@ impl<E: PairingEngine> PinccioReader<E> {
         println!("Total wires: {}", &totalWires);
 
         // TODO: curently we cant make the code generic as E:Fr has no from_str!!!
-        let mut cs = TestConstraintSystem::<Bls12_377>::new();
+        // let mut cs = CS::new();
         let mut wireValues = HashMap::new();
         let mut output_wire_ids = Vec::new();
 
@@ -74,7 +80,7 @@ impl<E: PairingEngine> PinccioReader<E> {
                 let parts: Vec<_> = line.split(' ').collect();
                 let id = parts[0].parse::<usize>().unwrap();
                 let fr_str = &parts[1];
-                let fr = hex_to_str::<Bls12_377>(&fr_str).unwrap();
+                let fr = hex_to_str::<E>(&fr_str).unwrap();
                 let fp =
                     FpGadget::alloc(cs.ns(|| format!("input for id {}", &id)), || Ok(fr)).unwrap();
                 wireValues.insert(id, Wire::Fp(fp));
@@ -190,7 +196,7 @@ impl<E: PairingEngine> PinccioReader<E> {
                     let scalar = ops.to_string();
                     let scalar: Vec<_> = scalar.rsplit("-").collect();
                     let scalar = scalar[0];
-                    let scalar = hex_to_str::<Bls12_377>(&scalar).unwrap();
+                    let scalar = hex_to_str::<E>(&scalar).unwrap();
 
                     let fp_a = match wireValues.get(&wires_in[0]).unwrap() {
                         Wire::Fp(fp) => fp,
@@ -364,18 +370,18 @@ impl<E: PairingEngine> PinccioReader<E> {
             };
         }
 
-        println!("### Print all constraints:");
-        cs.print_named_objects();
-        println!("Number of constraints {}", &cs.num_constraints());
-        println!(
-            "Is the constraint system satisfied?: {}",
-            &cs.is_satisfied()
-        );
-        println!(
-            "{}",
-            &cs.which_is_unsatisfied()
-                .unwrap_or("All constraints satisfied")
-        );
+        // println!("### Print all constraints:");
+        // cs.print_named_objects();
+        // println!("Number of constraints {}", &cs.num_constraints());
+        // println!(
+        //     "Is the constraint system satisfied?: {}",
+        //     &cs.is_satisfied()
+        // );
+        // println!(
+        //     "{}",
+        //     &cs.which_is_unsatisfied()
+        //         .unwrap_or("All constraints satisfied")
+        // );
 
         match output_wire_ids.len() {
             0 => println!("No output wires found"),
@@ -407,6 +413,7 @@ impl<E: PairingEngine> PinccioReader<E> {
             output_wire_ids: vec![],
 
             wire_values: HashMap::new(),
+            dummy:       PhantomData,
         };
         Ok(circuit)
     }
@@ -447,14 +454,14 @@ pub fn pack<E: PairingEngine, CS: ConstraintSystem<E>>(
     Ok(fp)
 }
 
-fn hex_to_str<E: PairingEngine>(hex_str: &str) -> Result<Fr, Error> {
+fn hex_to_str<E: PairingEngine>(hex_str: &str) -> Result<E::Fr, Error> {
     let str_padded = format!("{:0<64}", &hex_str);
     // TOOD: implement From<hex::FromHexError>` for `std::io::Error`
     let hex = Vec::from_hex(&str_padded).unwrap();
-    Ok(Fr::read(&hex[..])?)
+    Ok(E::Fr::read(&hex[..])?)
 }
 
 // TODO: delete dummy main...
-fn main()  {
+fn main() {
     println!("Hello World");
 }
