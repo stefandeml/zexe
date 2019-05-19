@@ -381,6 +381,54 @@ impl<E: PairingEngine> ToBitsGadget<E> for FpGadget<E> {
     }
 }
 
+impl<E: PairingEngine> FpGadget<E> {
+    pub fn split<CS: ConstraintSystem<E>>(
+        &self,
+        mut cs: CS,
+        num_bits: usize,
+    ) -> Result<Vec<AllocatedBit>, SynthesisError> {
+        use algebra::BitIterator;
+        let bit_values = match self.value {
+            Some(value) => {
+                let mut tmp = Vec::with_capacity(num_bits);
+                for b in BitIterator::new(value.into_repr()) {
+                    tmp.push(Some(b));
+                }
+                tmp
+            },
+            None => vec![None; num_bits],
+        };
+
+        let mut bits = vec![];
+        for (i, b) in bit_values.into_iter().rev().enumerate() {
+            // just select the most significant bits
+            if i == num_bits {
+                break;
+            }
+            bits.push(AllocatedBit::alloc(cs.ns(|| format!("bit {}", i)), || {
+                b.get()
+            })?);
+        }
+        assert_eq!(bits.len(), num_bits);
+        let mut lc = LinearCombination::zero();
+        let mut coeff = E::Fr::one();
+
+        for b in bits.iter() {
+            lc = lc + (coeff, b.get_variable());
+
+            coeff.double_in_place();
+        }
+
+        lc = &self.variable - lc;
+
+        cs.enforce(|| "unpacking_constraint", |lc| lc, |lc| lc, |_| lc);
+
+        Ok(bits)
+        // change to Boolean if that is more suitable
+        // Ok(bits.into_iter().map(Boolean::from).collect())
+    }
+}
+
 impl<E: PairingEngine> ToBytesGadget<E> for FpGadget<E> {
     fn to_bytes<CS: ConstraintSystem<E>>(&self, mut cs: CS) -> Result<Vec<UInt8>, SynthesisError> {
         let byte_values = match self.value {

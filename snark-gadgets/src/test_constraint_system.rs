@@ -77,6 +77,9 @@ impl<E: PairingEngine> TestConstraintSystem<E> {
             a.mul_assign(&b);
 
             if a != c {
+                println!("{}", &a);
+                println!("{}", &b);
+                println!("{}", &c);
                 return Some(&*path);
             }
         }

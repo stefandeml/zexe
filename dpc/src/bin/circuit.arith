@@ -1,0 +1,25 @@
+total 15
+input 0                  # The one-input wire.
+const-mul-02 in 1 <0> out 1 <9>
+output 9
+input 2                  # Input a 0
+input 3                  # Input a 1
+input 4                  # Input a 2
+input 5                  # Input b 0
+input 6                  # Input b 1
+input 7                  # Input b 2
+add in 2 <2 3> out 1 <1>
+mul in 2 <2 5> out 1 <8>                # Multiply elements # 0
+split in 1 <0> out 5 <10 11 12 13 14>
+pack in 5 <10 11 12 13 14> out 1 <15>
+and in 2 <11 12> out 1 <16>
+or in 2 <13 14> out 1 <17>
+assert in 2 <12 11> out 1 <10>
+# this is a comment
+# add in 2 <1 8> out 1 <9>
+# mul in 2 <3 6> out 1 <10>               # Multiply elements # 1
+# add in 2 <9 10> out 1 <11>
+# mul in 2 <4 7> out 1 <12>               # Multiply elements # 2
+# add in 2 <11 12> out 1 <13>
+# mul in 2 <13 0> out 1 <14>              # output of dot product a, b
+output 14                        # output of dot product a, b
