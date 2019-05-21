@@ -16,6 +16,7 @@ fn main() -> Result<(), Error> {
     let path_inputs = "src/bin/inputs.arith";
     let mut cs = TestConstraintSystem::<Bls12_377>::new();
 
+    // WHY?: Warum kann ich hier keinen Namespace verwenden?w
     let circuit =
         pinoccio::PinccioReader::<Bls12_377, TestConstraintSystem<Bls12_377>>::parsePinoccio(
             &mut cs,
@@ -35,6 +36,6 @@ fn main() -> Result<(), Error> {
         &cs.which_is_unsatisfied()
             .unwrap_or("All constraints satisfied")
     );
-    
+
     Ok(())
 }
