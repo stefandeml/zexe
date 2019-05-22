@@ -1796,8 +1796,6 @@ mod test {
         // }
     }
 
-
-
     #[test]
     // fn test_enforce_nand() {
     //     {
@@ -1857,7 +1855,6 @@ mod test {
     //         }
     //     }
     // }
-
     #[test]
     fn test_kary_and() {
         // test different numbers of operands

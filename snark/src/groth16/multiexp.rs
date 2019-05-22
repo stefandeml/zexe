@@ -1,7 +1,8 @@
 // we need this version for multi base scalar multiexp to have  density support
 
 use algebra::{
-    AffineCurve as CurveAffine, Field, PairingEngine,  PrimeField,  ProjectiveCurve as CurveProjective, BigInteger, PairingCurve
+    AffineCurve as CurveAffine, BigInteger, Field, PairingCurve, PairingEngine, PrimeField,
+    ProjectiveCurve as CurveProjective,
 };
 
 // use pairing::{
@@ -16,43 +17,51 @@ use algebra::{
 //     PrimeFieldRepr,
 //     ScalarEngine};
 
-use std::sync::Arc;
 use super::source::*;
 use futures::Future;
+use std::sync::Arc;
 // use super::singlecore::Worker;
 use super::multicore::Worker;
 use crate::SynthesisError;
 
 /// This genious piece of code works in the following way:
 /// - choose `c` - the bit length of the region that one thread works on
-/// - make `2^c - 1` buckets and initialize them with `G = infinity` (that's equivalent of zero)
+/// - make `2^c - 1` buckets and initialize them with `G = infinity` (that's
+///   equivalent of zero)
 /// - there is no bucket for "zero" cause it's not necessary
 /// - go over the pairs `(base, scalar)`
-/// - for each scalar calculate `scalar % 2^c` and add the base (without any multiplications!) to the 
+/// - for each scalar calculate `scalar % 2^c` and add the base (without any
+///   multiplications!) to the
 /// corresponding bucket
-/// - at the end each bucket will have an accumulated value that should be multiplied by the corresponding factor
+/// - at the end each bucket will have an accumulated value that should be
+///   multiplied by the corresponding factor
 /// between `1` and `2^c - 1` to get the right value
-/// - here comes the first trick - you don't need to do multiplications at all, just add all the buckets together
-/// starting from the first one `(a + b + c + ...)` and than add to the first sum another sum of the form
-/// `(b + c + d + ...)`, and than the third one `(c + d + ...)`, that will result in the proper prefactor infront of every
+/// - here comes the first trick - you don't need to do multiplications at all,
+///   just add all the buckets together
+/// starting from the first one `(a + b + c + ...)` and than add to the first
+/// sum another sum of the form `(b + c + d + ...)`, and than the third one `(c
+/// + d + ...)`, that will result in the proper prefactor infront of every
 /// accumulator, without any multiplication operations at all
 /// - that's of course not enough, so spawn the next thread
-/// - this thread works with the same bit width `c`, but SKIPS lowers bits completely, so it actually takes values
+/// - this thread works with the same bit width `c`, but SKIPS lowers bits
+///   completely, so it actually takes values
 /// in the form `(scalar >> c) % 2^c`, so works on the next region
 /// - spawn more threads until you exhaust all the bit length
 /// - you will get roughly `[bitlength / c] + 1` inaccumulators
-/// - double the highest accumulator enough times, add to the next one, double the result, add the next accumulator, continue
-/// 
+/// - double the highest accumulator enough times, add to the next one, double
+///   the result, add the next accumulator, continue
+///
 /// Demo why it works:
 /// ```
-///     a * G + b * H = (a_2 * (2^c)^2 + a_1 * (2^c)^1 + a_0) * G + (b_2 * (2^c)^2 + b_1 * (2^c)^1 + b_0) * H
+/// a * G + b * H = (a_2 * (2 ^ c) ^ 2 + a_1 * (2 ^ c) ^ 1 + a_0) * G
+///     + (b_2 * (2 ^ c) ^ 2 + b_1 * (2 ^ c) ^ 1 + b_0) * H
 /// ```
 /// - make buckets over `0` labeled coefficients
 /// - make buckets over `1` labeled coefficients
 /// - make buckets over `2` labeled coefficients
-/// - accumulators over each set of buckets will have an implicit factor of `(2^c)^i`, so before summing thme up
+/// - accumulators over each set of buckets will have an implicit factor of
+///   `(2^c)^i`, so before summing thme up
 /// "higher" accumulators must be doubled `c` times
-///
 #[allow(dead_code)]
 fn multiexp_inner<Q, D, G, S>(
     pool: &Worker,
@@ -62,12 +71,13 @@ fn multiexp_inner<Q, D, G, S>(
     // exponents: Arc<Vec<<<G::Engine as Engine>::Fr as PrimeField>::Repr>>,
     mut skip: u32,
     c: u32,
-    handle_trivial: bool
-) -> Box<dyn Future<Item=<G as CurveAffine>::Projective, Error=SynthesisError>>
-    where for<'a> &'a Q: QueryDensity,
-          D: Send + Sync + 'static + Clone + AsRef<Q>,
-          G: PairingCurve,
-          S: SourceBuilder<G>
+    handle_trivial: bool,
+) -> Box<dyn Future<Item = <G as CurveAffine>::Projective, Error = SynthesisError>>
+where
+    for<'a> &'a Q: QueryDensity,
+    D: Send + Sync + 'static + Clone + AsRef<Q>,
+    G: PairingCurve,
+    S: SourceBuilder<G>,
 {
     // Perform this region of the multiexp
     let this = {
@@ -92,8 +102,8 @@ fn multiexp_inner<Q, D, G, S>(
             // let zero = <G::Engine as ScalarEngine>::Fr::zero().into_repr();
             // let one = <G::Engine as ScalarEngine>::Fr::one().into_repr();
             // let zero = G::zero().into_projective();
-            let one = <G::Engine as PairingEngine>::Fr::one().into_repr();            // let one = <G::Engine as PairingEngine>::Fr::one().into_repr();
-            // Sort the bases into buckets
+            let one = <G::Engine as PairingEngine>::Fr::one().into_repr(); // let one = <G::Engine as PairingEngine>::Fr::one().into_repr();
+                                                                           // Sort the bases into buckets
             for (&exp, density) in exponents.iter().zip(density_map.as_ref().iter()) {
                 // Go over density and exponents
                 if density {
@@ -106,7 +116,7 @@ fn multiexp_inner<Q, D, G, S>(
                             bases.skip(1)?;
                         }
                     } else {
-                        // Place multiplication into the bucket: Separate s * P as 
+                        // Place multiplication into the bucket: Separate s * P as
                         // (s/2^c) * P + (s mod 2^c) P
                         // First multiplication is c bits less, so one can do it,
                         // sum results from different buckets and double it c times,
@@ -148,16 +158,24 @@ fn multiexp_inner<Q, D, G, S>(
         // There's another region more significant. Calculate and join it with
         // this region recursively.
         Box::new(
-            this.join(multiexp_inner(pool, bases, density_map, exponents, skip, c, false))
-                .map(move |(this, mut higher)| {
-                    for _ in 0..c {
-                        higher.double_in_place();
-                    }
+            this.join(multiexp_inner(
+                pool,
+                bases,
+                density_map,
+                exponents,
+                skip,
+                c,
+                false,
+            ))
+            .map(move |(this, mut higher)| {
+                for _ in 0..c {
+                    higher.double_in_place();
+                }
 
-                    higher += &this;
+                higher += &this;
 
-                    higher
-                })
+                higher
+            }),
         )
     }
 }
@@ -171,11 +189,12 @@ pub fn multiexp<Q, D, G, S>(
     density_map: D,
     // exponents: Arc<Vec<<<G::Engine as ScalarEngine>::Fr as PrimeField>::BigInt>>
     exponents: Arc<Vec<<G::ScalarField as PrimeField>::BigInt>>,
-) -> Box<dyn Future<Item=<G as CurveAffine>::Projective, Error=SynthesisError>>
-    where for<'a> &'a Q: QueryDensity,
-          D: Send + Sync + 'static + Clone + AsRef<Q>,
-          G: PairingCurve,
-          S: SourceBuilder<G>
+) -> Box<dyn Future<Item = <G as CurveAffine>::Projective, Error = SynthesisError>>
+where
+    for<'a> &'a Q: QueryDensity,
+    D: Send + Sync + 'static + Clone + AsRef<Q>,
+    G: PairingCurve,
+    S: SourceBuilder<G>,
 {
     let c = if exponents.len() < 32 {
         3u32
@@ -192,7 +211,6 @@ pub fn multiexp<Q, D, G, S>(
 
     multiexp_inner(pool, bases, density_map, exponents, 0, c, true)
 }
-
 
 /// Perform multi-exponentiation. The caller is responsible for ensuring that
 /// the number of bases is the same as the number of exponents.
@@ -225,10 +243,10 @@ pub fn multiexp<Q, D, G, S>(
 //     c: u32,
 //     handle_trivial: bool
 // ) -> Result<<G as CurveAffine>::Projective, SynthesisError>
-// {   
+// {
 //     use std::sync::Mutex;
-//     // Perform this region of the multiexp. We use a different strategy - go over region in parallel,
-//     // then over another region, etc. No Arc required
+//     // Perform this region of the multiexp. We use a different strategy - go over region in
+// parallel,     // then over another region, etc. No Arc required
 //     let this = {
 //         // let mask = (1u64 << c) - 1u64;
 //         let this_region = Mutex::new(<G as CurveAffine>::Projective::zero());
@@ -236,7 +254,7 @@ pub fn multiexp<Q, D, G, S>(
 //         pool.scope(bases.len(), |scope, chunk| {
 //             for (base, exp) in bases.chunks(chunk).zip(exponents.chunks(chunk)) {
 //                 let this_region_rwlock = arc.clone();
-//                 // let handle = 
+//                 // let handle =
 //                 scope.spawn(move |_| {
 //                     let mut buckets = vec![<G as CurveAffine>::Projective::zero(); (1 << c) - 1];
 //                     // Accumulate the result
@@ -283,14 +301,14 @@ pub fn multiexp<Q, D, G, S>(
 //                     let mut guard = match this_region_rwlock.lock() {
 //                         Ok(guard) => guard,
 //                         Err(_) => {
-//                             panic!("poisoned!"); 
+//                             panic!("poisoned!");
 //                             // poisoned.into_inner()
 //                         }
 //                     };
 
 //                     (*guard) += &acc;
 //                 });
-        
+
 //             }
 //         });
 
@@ -325,8 +343,7 @@ fn test_with_bls12() {
         bases: Arc<Vec<G>>,
         // exponents: Arc<Vec<<G::Scalar as PrimeField>::Repr>>
         exponents: Arc<Vec<<G::ScalarField as PrimeField>::BigInt>>,
-    ) -> G::Projective
-    {
+    ) -> G::Projective {
         assert_eq!(bases.len(), exponents.len());
 
         let mut acc = G::Projective::zero();
@@ -338,7 +355,6 @@ fn test_with_bls12() {
         acc
     }
 
-            
     use algebra::curves::bls12_381::Bls12_381;
     use rand::{self, Rand, SeedableRng, XorShiftRng};
     // use pairing::bls12_381::Bls12;
@@ -346,19 +362,22 @@ fn test_with_bls12() {
     const SAMPLES: usize = 1 << 9;
 
     // let rng = &mut rand::thread_rng();
-    let v = Arc::new((0..SAMPLES).map(|_| <Bls12_381 as PairingEngine>::Fr::rand(&mut rng).into_repr()).collect::<Vec<_>>());
-    let g = Arc::new((0..SAMPLES).map(|_| <Bls12_381 as PairingEngine>::G1Projective::rand(&mut rng).into_affine()).collect::<Vec<_>>());
+    let v = Arc::new(
+        (0..SAMPLES)
+            .map(|_| <Bls12_381 as PairingEngine>::Fr::rand(&mut rng).into_repr())
+            .collect::<Vec<_>>(),
+    );
+    let g = Arc::new(
+        (0..SAMPLES)
+            .map(|_| <Bls12_381 as PairingEngine>::G1Projective::rand(&mut rng).into_affine())
+            .collect::<Vec<_>>(),
+    );
 
     let naive = naive_multiexp(g.clone(), v.clone());
 
     let pool = Worker::new();
 
-    let fast = multiexp(
-        &pool,
-        (g, 0),
-        FullDensity,
-        v
-    ).wait().unwrap();
+    let fast = multiexp(&pool, (g, 0), FullDensity, v).wait().unwrap();
 
     assert_eq!(naive, fast);
 }
@@ -373,8 +392,10 @@ fn test_with_bls12() {
 //     const SAMPLES: usize = 1 << 22;
 
 //     let rng = &mut rand::thread_rng();
-//     let v = Arc::new((0..SAMPLES).map(|_| <Bn256 as ScalarEngine>::Fr::rand(rng).into_repr()).collect::<Vec<_>>());
-//     let g = Arc::new((0..SAMPLES).map(|_| <Bn256 as Engine>::G1::rand(rng).into_affine()).collect::<Vec<_>>());
+//     let v = Arc::new((0..SAMPLES).map(|_| <Bn256 as
+// ScalarEngine>::Fr::rand(rng).into_repr()).collect::<Vec<_>>());     let g =
+// Arc::new((0..SAMPLES).map(|_| <Bn256 as
+// Engine>::G1::rand(rng).into_affine()).collect::<Vec<_>>());
 
 //     let pool = Worker::new();
 
@@ -387,13 +408,11 @@ fn test_with_bls12() {
 //         v
 //     ).wait().unwrap();
 
-
 //     let duration_ns = start.elapsed().as_nanos() as f64;
 //     println!("Elapsed {} ns for {} samples", duration_ns, SAMPLES);
 //     let time_per_sample = duration_ns/(SAMPLES as f64);
-//     println!("Tested on {} samples on {} CPUs with {} ns per multiplication", SAMPLES, cpus, time_per_sample);
-// }
-
+//     println!("Tested on {} samples on {} CPUs with {} ns per multiplication",
+// SAMPLES, cpus, time_per_sample); }
 
 // #[test]
 // fn test_dense_multiexp() {
@@ -403,10 +422,13 @@ fn test_with_bls12() {
 
 //     // const SAMPLES: usize = 1 << 22;
 //     const SAMPLES: usize = 1 << 16;
-//     let rng = &mut XorShiftRng::from_seed([0x3dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+//     let rng = &mut XorShiftRng::from_seed([0x3dbe6259, 0x8d313d76,
+// 0x3237db17, 0xe5bc0654]);
 
-//     let v = (0..SAMPLES).map(|_| <Bn256 as ScalarEngine>::Fr::rand(rng).into_repr()).collect::<Vec<_>>();
-//     let g = (0..SAMPLES).map(|_| <Bn256 as Engine>::G1::rand(rng).into_affine()).collect::<Vec<_>>();
+//     let v = (0..SAMPLES).map(|_| <Bn256 as
+// ScalarEngine>::Fr::rand(rng).into_repr()).collect::<Vec<_>>();     let g =
+// (0..SAMPLES).map(|_| <Bn256 as
+// Engine>::G1::rand(rng).into_affine()).collect::<Vec<_>>();
 
 //     println!("Done generating test points and scalars");
 

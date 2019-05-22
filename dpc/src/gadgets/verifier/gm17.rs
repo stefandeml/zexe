@@ -178,10 +178,12 @@ where
             )?
         };
 
-        println!("Constraints after miller loop 1/ \
-        before final exp {:?} ", cs.num_constraints());
+        println!(
+            "Constraints after miller loop 1/ before final exp {:?} ",
+            cs.num_constraints()
+        );
         let test1 = P::final_exponentiation(cs.ns(|| "Final Exp 1"), &test1_exp).unwrap();
-        
+
         println!("Constraints after final exp {:?} ", cs.num_constraints());
         // e(A, H^{gamma}) = e(G^{gamma}, B)
         let test2_exp = {
@@ -190,15 +192,20 @@ where
             //&pvk.g_gamma_pc
             let proof_b = proof.b.negate(cs.ns(|| "Negate b"))?;
             let b_prep = P::prepare_g2(cs.ns(|| "Sixth prep"), &proof_b)?;
-            println!("Constraints before Miller loop 2 {:?} ", cs.num_constraints());
+            println!(
+                "Constraints before Miller loop 2 {:?} ",
+                cs.num_constraints()
+            );
             P::miller_loop(
                 cs.ns(|| "Miller loop 4"),
                 &[a_prep, pvk.g_gamma_pc.clone()],
                 &[pvk.h_gamma_pc.clone(), b_prep],
             )?
-
         };
-        println!("Constraints after miller loop 2/before final exp 2 {:?} ", cs.num_constraints());
+        println!(
+            "Constraints after miller loop 2/before final exp 2 {:?} ",
+            cs.num_constraints()
+        );
         let test2 = P::final_exponentiation(cs.ns(|| "Final Exp 2"), &test2_exp)?;
         println!("Constraints after final exp 2 {:?} ", cs.num_constraints());
 
@@ -545,11 +552,12 @@ mod test {
             let vk_gadget = TestVkGadget::alloc_input(cs.ns(|| "Vk"), || Ok(&params.vk)).unwrap();
             println!("Constraints after Vk Gadget {:?}", cs.num_constraints());
 
-//            checks if vk elements on curve  ... why is that necessary .. public input?
+            //            checks if vk elements on curve  ... why is that necessary ..
+            // public input?
             let proof_gadget =
                 TestProofGadget::alloc(cs.ns(|| "Proof"), || Ok(proof.clone())).unwrap();
             println!("Constraints after Proof Gadget {:?}", cs.num_constraints());
-//           checks if on curve and if in correct subgroup
+            //           checks if on curve and if in correct subgroup
             <TestVerifierGadget as NIZKVerifierGadget<TestProofSystem, SW6>>::check_verify(
                 cs.ns(|| "Verify"),
                 &vk_gadget,
@@ -557,9 +565,11 @@ mod test {
                 &proof_gadget,
             )
             .unwrap();
-            println!("Constraints after Verfier Gadget {:?}, for {:?} inputs ", cs
-                .num_constraints(),
-                     num_inputs);
+            println!(
+                "Constraints after Verfier Gadget {:?}, for {:?} inputs ",
+                cs.num_constraints(),
+                num_inputs
+            );
 
             if !cs.is_satisfied() {
                 println!("=========================================================");

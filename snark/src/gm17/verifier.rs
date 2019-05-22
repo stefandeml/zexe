@@ -29,12 +29,12 @@ pub fn verify_proof<E: PairingEngine>(
     if (public_inputs.len() + 1) != pvk.query.len() {
         return Err(SynthesisError::MalformedVerifyingKey);
     }
- 
+
     // e(A*G^{alpha}, B*H^{beta}) = e(G^{alpha}, H^{beta}) * e(G^{psi}, H^{gamma}) *
     // e(C, H)
     // where psi = \sum_{i=0}^l input_i pvk.query[i]
 
-    //same as acc / vk_x
+    // same as acc / vk_x
     let mut g_psi = pvk.query[0].into_projective();
     for (i, b) in public_inputs.iter().zip(pvk.query.iter().skip(1)) {
         g_psi.add_assign(&b.mul(i.into_repr()));

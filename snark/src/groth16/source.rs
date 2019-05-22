@@ -11,19 +11,18 @@
 //     ScalarEngine};
 
 // multiexp is using a technicality of used pippenger version in multiexp:
-// it says which bases exist ,since some polynomials might evaluate to zero 
-// (e.g., the variable is not a part of any constraints, for B - it only participates in A)
-// so you don't include these bases in the generated parameters (pk/vk)
+// it says which bases exist ,since some polynomials might evaluate to zero
+// (e.g., the variable is not a part of any constraints, for B - it only
+// participates in A) so you don't include these bases in the generated
+// parameters (pk/vk)
 
 use algebra::{
-    AffineCurve as CurveAffine, Field, PairingEngine as Engine, PrimeField,  ProjectiveCurve as CurveProjective,
+    AffineCurve as CurveAffine, Field, PairingEngine as Engine, PrimeField,
+    ProjectiveCurve as CurveProjective,
 };
 
-
-use std::sync::Arc;
-use std::io;
 use bit_vec::{self, BitVec};
-use std::iter;
+use std::{io, iter, sync::Arc};
 
 use crate::SynthesisError;
 
@@ -37,7 +36,10 @@ pub trait SourceBuilder<G: CurveAffine>: Send + Sync + 'static + Clone {
 /// A source of bases, like an iterator.
 pub trait Source<G: CurveAffine> {
     /// Parses the element from the source. Fails if the point is at infinity.
-    fn add_assign_mixed(&mut self, to: &mut <G as CurveAffine>::Projective) -> Result<(), SynthesisError>;
+    fn add_assign_mixed(
+        &mut self,
+        to: &mut <G as CurveAffine>::Projective,
+    ) -> Result<(), SynthesisError>;
 
     /// Skips `amt` elements from the source, avoiding deserialization.
     fn skip(&mut self, amt: usize) -> Result<(), SynthesisError>;
@@ -48,20 +50,27 @@ impl<G: CurveAffine> SourceBuilder<G> for (Arc<Vec<G>>, usize) {
 
     fn new(self) -> (Arc<Vec<G>>, usize) {
         (self.0.clone(), self.1)
-        //wraps an array with an additional index
+        // wraps an array with an additional index
     }
 }
 
 impl<G: CurveAffine> Source<G> for (Arc<Vec<G>>, usize) {
-        /// Parses the element from the source. Fails if the point is at infinity.
-    fn add_assign_mixed(&mut self, to: &mut <G as CurveAffine>::Projective) -> Result<(), SynthesisError> {
+    /// Parses the element from the source. Fails if the point is at infinity.
+    fn add_assign_mixed(
+        &mut self,
+        to: &mut <G as CurveAffine>::Projective,
+    ) -> Result<(), SynthesisError> {
         if self.0.len() <= self.1 {
-            return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "expected more bases when adding from source").into());
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "expected more bases when adding from source",
+            )
+            .into());
         }
         // ensure that vector is longer enough
 
         if self.0[self.1].is_zero() {
-            return Err(SynthesisError::UnexpectedIdentity)
+            return Err(SynthesisError::UnexpectedIdentity);
         }
         // vector does not allow any zero values at index
 
@@ -76,7 +85,11 @@ impl<G: CurveAffine> Source<G> for (Arc<Vec<G>>, usize) {
 
     fn skip(&mut self, amt: usize) -> Result<(), SynthesisError> {
         if self.0.len() <= self.1 {
-            return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "expected more bases skipping from source").into());
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "expected more bases skipping from source",
+            )
+            .into());
         }
 
         self.1 += amt;
@@ -88,7 +101,7 @@ impl<G: CurveAffine> Source<G> for (Arc<Vec<G>>, usize) {
 
 pub trait QueryDensity {
     /// Returns whether the base exists.
-    type Iter: Iterator<Item=bool>;
+    type Iter: Iterator<Item = bool>;
 
     fn iter(self) -> Self::Iter;
     fn get_query_size(self) -> Option<usize>;
@@ -118,8 +131,8 @@ impl<'a> QueryDensity for &'a FullDensity {
 
 #[derive(Clone)]
 pub struct DensityTracker {
-    bv: BitVec,
-    total_density: usize
+    bv:            BitVec,
+    total_density: usize,
 }
 
 // DensityTracker: iter is bv and lenth is bv length
@@ -138,8 +151,8 @@ impl<'a> QueryDensity for &'a DensityTracker {
 impl DensityTracker {
     pub fn new() -> DensityTracker {
         DensityTracker {
-            bv: BitVec::new(),
-            total_density: 0
+            bv:            BitVec::new(),
+            total_density: 0,
         }
     }
 
@@ -147,8 +160,8 @@ impl DensityTracker {
         self.bv.push(false);
     }
 
-// total density only gets adjusted with "inc"
-// then i also set value to true for a given index
+    // total density only gets adjusted with "inc"
+    // then i also set value to true for a given index
     pub fn inc(&mut self, idx: usize) {
         if !self.bv.get(idx).unwrap() {
             self.bv.set(idx, true);

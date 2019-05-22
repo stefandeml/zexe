@@ -4,12 +4,13 @@
 // };
 
 // use pairing::ff::{
-//     Field, 
+//     Field,
 //     PrimeField
 // };
 
 use algebra::{
-    AffineCurve as CurveAffine, Field, PairingEngine as Engine, PrimeField, SquareRootField, ProjectiveCurve as CurveProjective,
+    AffineCurve as CurveAffine, Field, PairingEngine as Engine, PrimeField,
+    ProjectiveCurve as CurveProjective, SquareRootField,
 };
 
 use crate::SynthesisError;
@@ -30,7 +31,7 @@ impl<G: CurveProjective> PartialEq for Point<G> {
     }
 }
 
-impl<G: CurveProjective> Copy for Point<G> { }
+impl<G: CurveProjective> Copy for Point<G> {}
 
 impl<G: CurveProjective> Clone for Point<G> {
     fn clone(&self) -> Point<G> {
@@ -62,7 +63,7 @@ impl<E: Engine> PartialEq for Scalar<E> {
     }
 }
 
-impl<E: Engine> Copy for Scalar<E> { }
+impl<E: Engine> Copy for Scalar<E> {}
 
 impl<E: Engine> Clone for Scalar<E> {
     fn clone(&self) -> Scalar<E> {
