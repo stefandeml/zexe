@@ -32,15 +32,15 @@ use super::multicore::Worker as MulExpWorker;
 
 use super::source::{DensityTracker, FullDensity};
 use algebra::{
-    fft::domain::Scalar, msm::VariableBaseMSM, AffineCurve, Field, PairingEngine, PrimeField,
+    fft::domain::Scalar, AffineCurve, Field, PairingEngine, PrimeField,
     ProjectiveCurve,
 };
 use futures::future::Future;
 
 use algebra::fft::domain::EvaluationDomain;
 
-use super::{ParameterSource, Parameters, Proof};
-use smallvec::SmallVec;
+use super::{ParameterSource, Proof};
+
 use std::{
     ops::{AddAssign, MulAssign},
     sync::Arc,

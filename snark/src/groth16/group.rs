@@ -9,11 +9,11 @@
 // };
 
 use algebra::{
-    AffineCurve as CurveAffine, Field, PairingEngine as Engine, PrimeField,
+    Field, PairingEngine as Engine, PrimeField,
     ProjectiveCurve as CurveProjective, SquareRootField,
 };
 
-use crate::SynthesisError;
+
 
 pub trait Group: Sized + Copy + Clone + Send + Sync {
     type ScalarField: PrimeField + SquareRootField + Into<<Self::ScalarField as PrimeField>::BigInt>;

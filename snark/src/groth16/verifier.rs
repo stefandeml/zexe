@@ -1,5 +1,5 @@
 use algebra::{
-    AffineCurve as CurveAffine, Field, PairingCurve, PairingEngine as Engine, PrimeField,
+    AffineCurve as CurveAffine, PairingCurve, PairingEngine as Engine, PrimeField,
     ProjectiveCurve as CurveProjective,
 };
 
@@ -7,7 +7,7 @@ use super::{PreparedVerifyingKey, Proof, VerifyingKey};
 
 use crate::SynthesisError;
 
-use std::ops::{AddAssign, MulAssign, Neg};
+use std::ops::{AddAssign, Neg};
 
 pub fn prepare_verifying_key<E: Engine>(vk: &VerifyingKey<E>) -> PreparedVerifyingKey<E> {
     let mut gamma = vk.gamma_g2;

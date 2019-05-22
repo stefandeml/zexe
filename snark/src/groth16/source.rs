@@ -17,7 +17,7 @@
 // parameters (pk/vk)
 
 use algebra::{
-    AffineCurve as CurveAffine, Field, PairingEngine as Engine, PrimeField,
+    AffineCurve as CurveAffine, 
     ProjectiveCurve as CurveProjective,
 };
 

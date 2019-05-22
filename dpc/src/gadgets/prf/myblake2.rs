@@ -406,7 +406,7 @@ pub fn blake2s<E: Engine, CS: ConstraintSystem<E>>(
 
 #[cfg(test)]
 mod test {
-    use rand::{Rng, SeedableRng, XorShiftRng};
+    
     // use pairing::bls12_381::{Bls12};
     // use ::circuit::boolean::{Boolean, AllocatedBit};
     // use ::circuit::test::TestConstraintSystem;
@@ -414,10 +414,10 @@ mod test {
     // use blake2_rfc::blake2s::Blake2s;
 
     use super::blake2s;
-    use algebra::{curves::bls12_381::Bls12_381 as Bls12, fields::bls12_381::Fr};
+    use algebra::curves::bls12_381::Bls12_381 as Bls12;
     use snark::ConstraintSystem;
     use snark_gadgets::{
-        bits::boolean::{AllocatedBit, Boolean},
+        bits::boolean::AllocatedBit,
         test_constraint_system::TestConstraintSystem,
         utils::AllocGadget,
     };

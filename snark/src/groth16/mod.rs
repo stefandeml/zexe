@@ -7,7 +7,7 @@
 use crate::SynthesisError;
 use algebra::{bytes::ToBytes, PairingCurve, PairingEngine};
 use std::{
-    io::{self, Read, Result as IoResult, Write},
+    io::{self, Result as IoResult, Write},
     sync::Arc,
 };
 // use crate::source::SourceBuilder;

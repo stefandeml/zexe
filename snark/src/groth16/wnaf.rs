@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 // generator uses weighted non-adjacent form, hence we add this here for now
 
 use algebra::{BigInteger, PrimeField, ProjectiveCurve as CurveProjective};

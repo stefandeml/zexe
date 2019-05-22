@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! This is an interface for dealing with the kinds of
 //! parallel computations involved in bellman. It's
 //! currently just a thin wrapper around CpuPool and
