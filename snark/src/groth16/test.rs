@@ -2,6 +2,7 @@ mod bls12_377 {
     use crate::{
         groth16::{
             create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
+            batch_verify
         },
         Circuit, ConstraintSystem, SynthesisError,
     };
@@ -11,7 +12,7 @@ mod bls12_377 {
     use std::ops::MulAssign;
 
     #[test]
-    fn prove_and_verify() {
+    fn prove_and_verify_single() {
         struct MySillyCircuit<E: PairingEngine> {
             a: Option<E::Fr>,
             b: Option<E::Fr>,
@@ -68,6 +69,82 @@ mod bls12_377 {
             assert!(!verify_proof(&pvk, &proof, &[a]).unwrap());
         }
     }
+        #[test]
+    fn prove_and_verify_batch() {
+        struct MySillyCircuit<E: PairingEngine> {
+            a: Option<E::Fr>,
+            b: Option<E::Fr>,
+        }
+
+        impl<E: PairingEngine> Circuit<E> for MySillyCircuit<E> {
+            fn synthesize<CS: ConstraintSystem<E>>(
+                self,
+                cs: &mut CS,
+            ) -> Result<(), SynthesisError> {
+                let a = cs.alloc(|| "a", || self.a.ok_or(SynthesisError::AssignmentMissing))?;
+                let b = cs.alloc(|| "b", || self.b.ok_or(SynthesisError::AssignmentMissing))?;
+                let c = cs.alloc_input(
+                    || "c",
+                    || {
+                        let mut a = self.a.ok_or(SynthesisError::AssignmentMissing)?;
+                        let b = self.b.ok_or(SynthesisError::AssignmentMissing)?;
+
+                        a.mul_assign(&b);
+                        Ok(a)
+                    },
+                )?;
+
+                cs.enforce(|| "a*b=c", |lc| lc + a, |lc| lc + b, |lc| lc + c);
+
+                Ok(())
+            }
+        }
+
+        let rng = &mut thread_rng();
+
+        let params =
+            generate_random_parameters::<Bls12_377, _, _>(MySillyCircuit { a: None, b: None }, rng)
+                .unwrap();
+
+        let pvk = prepare_verifying_key::<Bls12_377>(&params.vk);
+
+        for _ in 0..100 {
+            let a1 = Fr::rand(rng);
+            let b1 = Fr::rand(rng);
+            let mut c1 = a1;
+            c1.mul_assign(&b1);
+
+            let a2 = Fr::rand(rng);
+            let b2= Fr::rand(rng);
+            let mut c2 = a2;
+            c2.mul_assign(&b2);
+
+            let proof1 = create_random_proof(
+                MySillyCircuit {
+                    a: Some(a1),
+                    b: Some(b1),
+                },
+                &params,
+                rng,
+            )
+            .unwrap();
+
+            let proof2 = create_random_proof(
+                MySillyCircuit {
+                    a: Some(a2),
+                    b: Some(b2),
+                },
+                &params,
+                rng,
+            )
+            .unwrap();
+
+            assert!(batch_verify(&pvk, &proof1, &[c1], &proof2, &[c2]).unwrap());
+            assert!(!batch_verify(&pvk, &proof1, &[c1], &proof2, &[a2]).unwrap());
+            assert!(!batch_verify(&pvk, &proof1, &[a1], &proof2, &[c2]).unwrap());
+        }
+    }
+
 }
 
 // mod sw6 {

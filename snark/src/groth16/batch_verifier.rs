@@ -7,7 +7,7 @@ use super::{PreparedVerifyingKey, Proof, VerifyingKey};
 
 use crate::SynthesisError;
 
-use std::ops::{AddAssign, Neg, Add};
+use std::ops::{AddAssign, Neg};
 
 pub fn prepare_verifying_key<E: Engine>(vk: &VerifyingKey<E>) -> PreparedVerifyingKey<E> {
     let mut gamma = vk.gamma_g2;
@@ -24,9 +24,8 @@ pub fn prepare_verifying_key<E: Engine>(vk: &VerifyingKey<E>) -> PreparedVerifyi
     }
 }
 
-//WHY: warum lifetime annotation necessary her?
-pub fn verify_proof<E: Engine>(
-    pvk: &PreparedVerifyingKey<E>,
+pub fn verify_proof<'a, E: Engine>(
+    pvk: &'a PreparedVerifyingKey<E>,
     proof: &Proof<E>,
     public_inputs: &[E::Fr],
 ) -> Result<bool, SynthesisError> {
@@ -59,43 +58,4 @@ pub fn verify_proof<E: Engine>(
     ))
     .unwrap()
         == pvk.alpha_g1_beta_g2)
-}
-
-
-pub fn batch_verify<E: Engine>(
-    pvk: &PreparedVerifyingKey<E>,
-    // proofs: &[&Proof<E>],
-    // public_inputs: &[&[E::Fr]]
-        proof1: &Proof<E>,
-    public_inputs1: &[E::Fr],
-        proof2: &Proof<E>,
-    public_inputs2: &[E::Fr]
-
-) -> Result<bool, SynthesisError> {
-
-    let mut acc1 = pvk.ic[0].into_projective();
-    for (i, b) in public_inputs1.iter().zip(pvk.ic.iter().skip(1)) {
-        acc1.add_assign(&b.mul(i.into_repr()));
-    }
-
-    let mut acc2 = pvk.ic[0].into_projective();
-    for (i, b) in public_inputs2.iter().zip(pvk.ic.iter().skip(1)) {
-        acc2.add_assign(&b.mul(i.into_repr()));
-    }
-    let ic1 = E::pairing(acc1.into_affine().clone(), pvk.vk.gamma_g2.clone());
-    let ic2 = E::pairing(acc2.into_affine().clone(), pvk.vk.gamma_g2.clone());
-
-    let PI =  pvk.alpha_g1_beta_g2 * &ic1 * &pvk.alpha_g1_beta_g2 * &ic2;
-
-    let ml1 = E::miller_loop(&[(&proof1.a.prepare(), &proof1.b.prepare())]);
-    let ml2 = E::miller_loop(&[(&proof2.a.prepare(), &proof2.b.prepare())]);
-
-    let mut c = proof1.c.into_projective() + &proof2.c.into_projective();
-    c = c.neg();
-
-    let cML = E::miller_loop(&[(&c.into_affine().prepare(), &pvk.vk.delta_g2.prepare())]); 
-    let MC = ml1 * &ml2 * &cML;
-    let F = E::final_exponentiation(&MC);
-
-    Ok(F.unwrap() == PI)
 }
