@@ -139,9 +139,9 @@ mod bls12_377 {
             )
             .unwrap();
 
-            assert!(batch_verify(&pvk, &proof1, &[c1], &proof2, &[c2]).unwrap());
-            assert!(!batch_verify(&pvk, &proof1, &[c1], &proof2, &[a2]).unwrap());
-            assert!(!batch_verify(&pvk, &proof1, &[a1], &proof2, &[c2]).unwrap());
+            assert!(batch_verify(&pvk, &proof1, &[c1], &proof2, &[c2]).unwrap().0);
+            assert!(!batch_verify(&pvk, &proof1, &[c1], &proof2, &[a2]).unwrap().0);
+            assert!(!batch_verify(&pvk, &proof1, &[a1], &proof2, &[c2]).unwrap().0);
         }
     }
 

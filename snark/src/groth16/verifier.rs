@@ -71,7 +71,7 @@ pub fn batch_verify<E: Engine>(
         proof2: &Proof<E>,
     public_inputs2: &[E::Fr]
 
-) -> Result<bool, SynthesisError> {
+) -> Result<(bool, E::Fqk), SynthesisError> {
 
     let mut acc1 = pvk.ic[0].into_projective();
     for (i, b) in public_inputs1.iter().zip(pvk.ic.iter().skip(1)) {
@@ -97,5 +97,7 @@ pub fn batch_verify<E: Engine>(
     let MC = ml1 * &ml2 * &cML;
     let F = E::final_exponentiation(&MC);
 
-    Ok(F.unwrap() == PI)
+    // Ok(F.unwrap() == PI)
+    let success = F.unwrap() == PI;
+    Ok((success, PI))
 }
