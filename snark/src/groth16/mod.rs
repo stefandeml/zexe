@@ -32,6 +32,7 @@ pub use self::{generator::*, prover::*, source::*, verifier::*};
 #[cfg(test)]
 mod test;
 
+
 #[derive(Debug, Clone)]
 pub struct Proof<E: PairingEngine> {
     pub a: E::G1Affine,
@@ -64,6 +65,12 @@ impl<E: PairingEngine> Default for Proof<E> {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct ProofInstance<'a, E: PairingEngine> {
+    pub proof: Proof<E>,
+    pub public_input: &'a [E::Fr]
+
+}
 // keep this for now as serialisation  might be useful and currently
 // throws not implemented exception in zexe
 

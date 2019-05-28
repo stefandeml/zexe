@@ -3,11 +3,13 @@ use algebra::{
     ProjectiveCurve as CurveProjective,
 };
 
-use super::{PreparedVerifyingKey, Proof, VerifyingKey};
+use super::{PreparedVerifyingKey, Proof, VerifyingKey, ProofInstance};
 
 use crate::SynthesisError;
 
 use std::ops::{AddAssign, Neg, Add};
+
+use algebra::fields::Field;
 
 pub fn prepare_verifying_key<E: Engine>(vk: &VerifyingKey<E>) -> PreparedVerifyingKey<E> {
     let mut gamma = vk.gamma_g2;
@@ -24,7 +26,6 @@ pub fn prepare_verifying_key<E: Engine>(vk: &VerifyingKey<E>) -> PreparedVerifyi
     }
 }
 
-//WHY: warum lifetime annotation necessary her?
 pub fn verify_proof<E: Engine>(
     pvk: &PreparedVerifyingKey<E>,
     proof: &Proof<E>,
@@ -36,7 +37,6 @@ pub fn verify_proof<E: Engine>(
 
     let mut acc = pvk.ic[0].into_projective();
 
-    // 1 scalar mul + 1 additon per public input!
     for (i, b) in public_inputs.iter().zip(pvk.ic.iter().skip(1)) {
         acc.add_assign(&b.mul(i.into_repr()));
     }
@@ -62,42 +62,47 @@ pub fn verify_proof<E: Engine>(
 }
 
 
-pub fn batch_verify<E: Engine>(
+pub fn batch_verify<'a, E: Engine>(
     pvk: &PreparedVerifyingKey<E>,
-    // proofs: &[&Proof<E>],
-    // public_inputs: &[&[E::Fr]]
-        proof1: &Proof<E>,
-    public_inputs1: &[E::Fr],
-        proof2: &Proof<E>,
-    public_inputs2: &[E::Fr]
-
+    proof_instances: &'a [ProofInstance<E>]
 ) -> Result<(bool, E::Fqk), SynthesisError> {
 
-    let mut acc1 = pvk.ic[0].into_projective();
-    for (i, b) in public_inputs1.iter().zip(pvk.ic.iter().skip(1)) {
-        acc1.add_assign(&b.mul(i.into_repr()));
+    let mut ics = Vec::new();
+    let mut ml_ab = Vec::new();
+    let mut c_acc = E::G1Projective::zero();
+
+    for pf in proof_instances {
+        let ProofInstance {proof, public_input} = pf;
+
+        let mut ic = pvk.ic[0].into_projective();
+        for (i, b) in public_input.iter().zip(pvk.ic.iter().skip(1)) {
+            ic.add_assign(&b.mul(i.into_repr()));
+    }
+        let ic = E::pairing(ic.into_affine().clone(), pvk.vk.gamma_g2.clone());
+        ics.push(ic);
+
+        c_acc +=  &proof.c.into_projective();
+
+        let ml = E::miller_loop(&[(&proof.a.prepare(), &proof.b.prepare())]);
+        ml_ab.push(ml);
     }
 
-    let mut acc2 = pvk.ic[0].into_projective();
-    for (i, b) in public_inputs2.iter().zip(pvk.ic.iter().skip(1)) {
-        acc2.add_assign(&b.mul(i.into_repr()));
-    }
-    let ic1 = E::pairing(acc1.into_affine().clone(), pvk.vk.gamma_g2.clone());
-    let ic2 = E::pairing(acc2.into_affine().clone(), pvk.vk.gamma_g2.clone());
+    let mut PI = pvk.alpha_g1_beta_g2 * &ics[0];
+    for ic in ics.iter().skip(1) {
+        PI *=  &pvk.alpha_g1_beta_g2;
+        PI *=  &ic;
+    };
 
-    let PI =  pvk.alpha_g1_beta_g2 * &ic1 * &pvk.alpha_g1_beta_g2 * &ic2;
+    c_acc = c_acc.neg();
+    let cML = E::miller_loop(&[(&c_acc.into_affine().prepare(), &pvk.vk.delta_g2.prepare())]); 
 
-    let ml1 = E::miller_loop(&[(&proof1.a.prepare(), &proof1.b.prepare())]);
-    let ml2 = E::miller_loop(&[(&proof2.a.prepare(), &proof2.b.prepare())]);
+    let mut MC = cML;
+    for i in ml_ab  {
+        MC *= &i
+    };
 
-    let mut c = proof1.c.into_projective() + &proof2.c.into_projective();
-    c = c.neg();
-
-    let cML = E::miller_loop(&[(&c.into_affine().prepare(), &pvk.vk.delta_g2.prepare())]); 
-    let MC = ml1 * &ml2 * &cML;
     let F = E::final_exponentiation(&MC);
 
-    // Ok(F.unwrap() == PI)
     let success = F.unwrap() == PI;
     Ok((success, PI))
 }

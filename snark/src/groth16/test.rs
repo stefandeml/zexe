@@ -2,7 +2,7 @@ mod bls12_377 {
     use crate::{
         groth16::{
             create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
-            batch_verify
+            batch_verify, ProofInstance
         },
         Circuit, ConstraintSystem, SynthesisError,
     };
@@ -139,9 +139,23 @@ mod bls12_377 {
             )
             .unwrap();
 
-            assert!(batch_verify(&pvk, &proof1, &[c1], &proof2, &[c2]).unwrap().0);
-            assert!(!batch_verify(&pvk, &proof1, &[c1], &proof2, &[a2]).unwrap().0);
-            assert!(!batch_verify(&pvk, &proof1, &[a1], &proof2, &[c2]).unwrap().0);
+            let mut proof_instances = Vec::new();
+
+            //TODO: is there a better way to do this?
+            let public_input1 = [c1];
+            let public_input2 = [c2];
+
+            proof_instances.push(ProofInstance{ 
+                proof: proof1,
+                public_input: &public_input1
+            });
+
+            proof_instances.push(ProofInstance{ 
+                proof: proof2,
+                public_input: &public_input2 
+            });
+
+            assert!(batch_verify(&pvk, &proof_instances).unwrap().0);
         }
     }
 

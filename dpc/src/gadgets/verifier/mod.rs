@@ -6,7 +6,7 @@ use snark_gadgets::utils::{AllocGadget, ToBitsGadget, ToBytesGadget};
 
 pub mod gm17;
 pub mod groth16;
-pub mod groth16batch;
+// pub mod groth16batch;
 
 pub trait NIZKVerifierGadget<N: NIZK, E: PairingEngine> {
     type VerificationKeyGadget: AllocGadget<N::VerificationParameters, E> + ToBytesGadget<E>;
