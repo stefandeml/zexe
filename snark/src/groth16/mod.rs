@@ -32,7 +32,6 @@ pub use self::{generator::*, prover::*, source::*, verifier::*};
 #[cfg(test)]
 mod test;
 
-
 #[derive(Debug, Clone)]
 pub struct Proof<E: PairingEngine> {
     pub a: E::G1Affine,
@@ -67,9 +66,8 @@ impl<E: PairingEngine> Default for Proof<E> {
 
 #[derive(Debug, Clone)]
 pub struct ProofInstance<'a, E: PairingEngine> {
-    pub proof: Proof<E>,
-    pub public_input: &'a [E::Fr]
-
+    pub proof:        Proof<E>,
+    pub public_input: &'a [E::Fr],
 }
 // keep this for now as serialisation  might be useful and currently
 // throws not implemented exception in zexe
@@ -366,7 +364,7 @@ impl<E: PairingEngine> PartialEq for Parameters<E> {
 //     {
 //         let read_g1 = |reader: &mut R| -> io::Result<E::G1Affine> {
 //             let mut repr = <E::G1Affine as
-// CurveAffine>::Uncompressed::empty();             
+// CurveAffine>::Uncompressed::empty();
 // reader.read_exact(repr.as_mut())?;
 
 //             if checked {
@@ -386,7 +384,7 @@ impl<E: PairingEngine> PartialEq for Parameters<E> {
 
 //         let read_g2 = |reader: &mut R| -> io::Result<E::G2Affine> {
 //             let mut repr = <E::G2Affine as
-// CurveAffine>::Uncompressed::empty();             
+// CurveAffine>::Uncompressed::empty();
 // reader.read_exact(repr.as_mut())?;
 
 //             if checked {

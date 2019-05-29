@@ -16,10 +16,7 @@
 // participates in A) so you don't include these bases in the generated
 // parameters (pk/vk)
 
-use algebra::{
-    AffineCurve as CurveAffine, 
-    ProjectiveCurve as CurveProjective,
-};
+use algebra::{AffineCurve as CurveAffine, ProjectiveCurve as CurveProjective};
 
 use bit_vec::{self, BitVec};
 use std::{io, iter, sync::Arc};

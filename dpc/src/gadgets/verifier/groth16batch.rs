@@ -113,7 +113,8 @@ where
     _pairing_gadget: PhantomData<P>,
 }
 
-impl<PairingE, ConstraintE, P, C, V> NIZKBatchVerifierGadget<Groth16<PairingE, C, V>, ConstraintE, PairingE>
+impl<PairingE, ConstraintE, P, C, V>
+    NIZKBatchVerifierGadget<Groth16<PairingE, C, V>, ConstraintE, PairingE>
     for Groth16VerifierGadget<PairingE, ConstraintE, P>
 where
     PairingE: PairingEngine,
@@ -130,7 +131,7 @@ where
         vk: &Self::VerificationKeyGadget,
         public_inputs: &mut [I],
         proofs: &[Self::ProofGadget],
-        PI: PairingE::Fqk
+        PI: PairingE::Fqk,
     ) -> Result<(), SynthesisError>
     where
         CS: ConstraintSystem<ConstraintE>,
@@ -145,17 +146,12 @@ where
 
         let mut g_psi_vec = Vec::new();
         for (i, pi) in public_inputs.iter_mut().enumerate() {
-
             let mut cs = cs.ns(|| format!("Batch verify Input: {}", i));
             let mut g_psi = pvk.ic[0].clone();
             let mut input_len = 1;
-            for (i, (input, b)) in pi
-                .by_ref()
-                .zip(pvk.ic.iter().skip(1))
-                .enumerate()
-            {
+            for (i, (input, b)) in pi.by_ref().zip(pvk.ic.iter().skip(1)).enumerate() {
                 let input_bits = input.to_bits(cs.ns(|| format!("Input to bits: {}", i)))?;
-                g_psi = b.mul_bits(cs.ns(|| format!("Mul {}", i)), &g_psi, input_bits.iter())?;
+                g_psi = b.mul_bits(cs.ns(|| format!("Mul: {}", i)), &g_psi, input_bits.iter())?;
                 input_len += 1;
             }
             // Check that the input and the query in the verification are of the
@@ -165,44 +161,37 @@ where
         }
 
         let mc = {
-
             let mut a_prep = Vec::new();
             let mut b_prep = Vec::new();
             for (i, p) in proofs.iter().enumerate() {
-            let a = P::prepare_g1(cs.ns(|| format!("A1 prep: {}", i)), &p.a)?;
-            let b = P::prepare_g2(cs.ns(|| format!("B1 prep: {}", i)), &p.b)?;
-            a_prep.push(a);
-            b_prep.push(b);
-            };
+                let a = P::prepare_g1(cs.ns(|| format!("Proof A prep: {}", i)), &p.a)?;
+                let b = P::prepare_g2(cs.ns(|| format!("Proof B prep: {}", i)), &p.b)?;
+                a_prep.push(a);
+                b_prep.push(b);
+            }
 
-            let M = P::miller_loop(
-                cs.ns(|| "Miller loop for M"), &a_prep, &b_prep)?;
+            let m = P::miller_loop(cs.ns(|| "Miller loop for M"), &a_prep, &b_prep)?;
 
-            let mut c_acc = P::G1Gadget::zero(cs.ns(|| "Allocate C proof zero")).unwrap();
+            let mut c_acc = P::G1Gadget::zero(cs.ns(|| "Allocate Proof C zero")).unwrap();
             for (i, p) in proofs.iter().enumerate() {
-                c_acc = c_acc.add(cs.ns(|| format!("add proofs: {}",i)), &p.c)?;
-            };
-            let c_acc = c_acc.negate(cs.ns(|| "negate c"))?;
-            let c_prep = P::prepare_g1(cs.ns(|| "C prep"), &c_acc)?;
+                c_acc = c_acc.add(cs.ns(|| format!("Add proof C: {}", i)), &p.c)?;
+            }
+            let c_acc = c_acc.negate(cs.ns(|| "Negate proof C"))?;
+            let c_prep = P::prepare_g1(cs.ns(|| "Proof C prep"), &c_acc)?;
 
-            let cM = P::miller_loop(
+            let c_m= P::miller_loop(
                 cs.ns(|| "Miller loop for C"),
-                &[
-                    c_prep, 
-                ],
-                &[
-                    pvk.delta_g2_pc.clone(), 
-                ],
+                &[c_prep],
+                &[pvk.delta_g2_pc.clone()],
             )?;
 
-            M.mul(cs.ns(|| "mul"), &cM)
+            m.mul(cs.ns(|| "Mul both miller loops"), &c_m)
         };
 
-        let f = P::final_exponentiation(cs.ns(|| "Final Exp 1"), &mc.unwrap()).unwrap();
-        
-        let PIc = P::GTGadget::alloc(cs.ns(|| "Allo PI"), || Ok(PI)).unwrap();
-        // let one = P::GTGadget::one(cs.ns(|| "GT One"))?;
-        f.enforce_equal(cs.ns(|| "Test 1"), &PIc)?;
+        let f = P::final_exponentiation(cs.ns(|| "Final Exp"), &mc.unwrap()).unwrap();
+
+        let pi_c = P::GTGadget::alloc_input(cs.ns(|| "Alloc PI public input"), || Ok(PI)).unwrap();
+        f.enforce_equal(cs.ns(|| "Test"), &pi_c)?;
 
         Ok(())
     }
@@ -486,77 +475,68 @@ mod test {
         let num_inputs = 4;
         let rng = &mut thread_rng();
 
-        let mut temp = Vec::new();
-        let mut proof_instances = Vec::new();
-
         let params = {
             let c = Bench::<Bls12_377> {
-                inputs: vec![None; num_inputs],
+                inputs:          vec![None; num_inputs],
                 num_constraints: num_inputs,
             };
 
             generate_random_parameters(c, rng).unwrap()
         };
 
-        for _ in 0..100 {
+        let mut test_proofs  = Vec::new();
+        let mut proof_instances = Vec::new();
+        for _ in 0..2 {
+            let mut inputs: Vec<Option<Fr>> = Vec::with_capacity(num_inputs);
+            for _ in 0..num_inputs {
+                inputs.push(Some(rng.gen()));
+            }
 
-        let mut inputs: Vec<Option<Fr>> = Vec::with_capacity(num_inputs);
-        for _ in 0..num_inputs {
-            inputs.push(Some(rng.gen()));
-        };
-
-         let proof = {
+            let proof = {
                 // Create an instance of our circuit (with the
                 // witness)
                 let c = Bench {
-                    inputs: inputs.clone(),
+                    inputs:          inputs.clone(),
                     num_constraints: num_inputs,
                 };
                 // Create a groth16 proof with our parameters.
                 create_random_proof(c, &params, rng).unwrap()
             };
 
-            let inputs: Vec<_> = inputs.into_iter().map(|input| input.unwrap()).collect();
+            // map options to successful values
+            let inputs: Vec<_> = inputs.into_iter().flatten().collect();
 
-            temp.push((proof, inputs));
-
+            test_proofs.push((proof, inputs));
         }
 
-        for (j, (p, i)) in temp.iter().enumerate() {
-
-            proof_instances.push(ProofInstance{ 
+        // define ProofInstances
+        for (j, (p, _i)) in test_proofs.iter().enumerate() {
+            proof_instances.push(ProofInstance {
                 proof: p.clone(),
-                // public_input: &inputs
-                public_input: &temp[j].1 
+                public_input: &test_proofs[j].1,
             });
-
         }
-
 
         let pvk = prepare_verifying_key::<Bls12_377>(&params.vk);
         let mut cs = TestConstraintSystem::<SW6>::new();
 
         {
-
-            let (success, PI) =
-                batch_verify(&pvk, &proof_instances).unwrap();
+            let (success, PI) = batch_verify(&pvk, &proof_instances).unwrap();
 
             assert!(success);
 
             let mut multi_input_gadgets = Vec::new();
             for (j, pi) in proof_instances.iter().enumerate() {
+                let mut input_gadgets = Vec::new();
 
-            let mut input_gadgets = Vec::new();
-
-                let mut cs = cs.ns(|| format!("Allocate Input {}", j));
+                let mut cs = cs.ns(|| format!("Allocate public input parameters {}", j));
                 for (i, input) in pi.public_input.iter().enumerate() {
                     let mut input_bits = BitIterator::new(input.into_repr()).collect::<Vec<_>>();
                     // Input must be in little-endian, but BitIterator outputs in big-endian.
                     input_bits.reverse();
 
-                    println!("Input lenghts {:?}", input_bits.len());
                     let input_bits =
-                        Vec::<Boolean>::alloc_input(cs.ns(|| format!("Input {}", i)), || {
+                        Vec::<Boolean>::alloc_input(cs.ns(|| format!("Alloc input: {}", i)), || {
                             Ok(input_bits)
                         })
                         .unwrap();
@@ -565,25 +545,24 @@ mod test {
                 }
 
                 multi_input_gadgets.push(input_gadgets)
-            };
+            }
 
             let mut proof_gadgets = Vec::new();
             for (i, pi) in proof_instances.iter().enumerate() {
-
                 //            checks if vk elements on curve  ... why is that necessary ..
                 // public input?
-                let proof_gadget =
-                    TestProofGadget::alloc(cs.ns(|| format!("Proof {}", i)), || Ok(pi.proof.clone())).unwrap();
+                let proof_gadget = TestProofGadget::alloc(cs.ns(|| format!("Alloc Proof Gadget: {}", i)), || {
+                    Ok(pi.proof.clone())
+                })
+                .unwrap();
                 //           checks if on curve and if in correct subgroup
                 proof_gadgets.push(proof_gadget);
-            };
+            }
 
-            println!("Constraints before Vk {:?}", cs.num_constraints());
             let vk_gadget = TestVkGadget::alloc_input(cs.ns(|| "Vk"), || Ok(&params.vk)).unwrap();
-            println!("Constraints after Vk Gadget {:?}", cs.num_constraints());
 
-            // let mut inputs_batch = [input_gadgets1.iter(), input_gadgets2.iter()];
-            let mut inputs_batch_iter: Vec<_> = multi_input_gadgets.iter().map(|x| x.iter()).collect();
+            let mut inputs_batch_iter: Vec<_> =
+                multi_input_gadgets.iter().map(|x| x.iter()).collect();
 
             <TestVerifierGadget as NIZKBatchVerifierGadget<TestProofSystem,
             SW6, Bls12_377>>::check_batch_verify(cs.ns(|| "Verify"),
@@ -604,7 +583,7 @@ mod test {
                 println!("=========================================================");
                 println!("Unsatisfied constraints:");
                 println!("{:?}", cs.which_is_unsatisfied().unwrap());
-                println!("====================================================c=====");
+                println!("=========================================================");
             }
 
             // cs.print_named_objects();

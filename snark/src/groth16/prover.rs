@@ -32,8 +32,7 @@ use super::multicore::Worker as MulExpWorker;
 
 use super::source::{DensityTracker, FullDensity};
 use algebra::{
-    fft::domain::Scalar, AffineCurve, Field, PairingEngine, PrimeField,
-    ProjectiveCurve,
+    fft::domain::Scalar, AffineCurve, Field, PairingEngine, PrimeField, ProjectiveCurve,
 };
 use futures::future::Future;
 

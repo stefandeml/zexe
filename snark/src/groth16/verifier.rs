@@ -3,13 +3,11 @@ use algebra::{
     ProjectiveCurve as CurveProjective,
 };
 
-use super::{PreparedVerifyingKey, Proof, VerifyingKey, ProofInstance};
+use super::{PreparedVerifyingKey, Proof, ProofInstance, VerifyingKey};
 
 use crate::SynthesisError;
 
-use std::ops::{AddAssign, Neg, Add};
-
-use algebra::fields::Field;
+use std::ops::{AddAssign, Neg};
 
 pub fn prepare_verifying_key<E: Engine>(vk: &VerifyingKey<E>) -> PreparedVerifyingKey<E> {
     let mut gamma = vk.gamma_g2;
@@ -61,27 +59,28 @@ pub fn verify_proof<E: Engine>(
         == pvk.alpha_g1_beta_g2)
 }
 
-
 pub fn batch_verify<'a, E: Engine>(
     pvk: &PreparedVerifyingKey<E>,
-    proof_instances: &'a [ProofInstance<E>]
+    proof_instances: &'a [ProofInstance<E>],
 ) -> Result<(bool, E::Fqk), SynthesisError> {
-
     let mut ics = Vec::new();
     let mut ml_ab = Vec::new();
     let mut c_acc = E::G1Projective::zero();
 
     for pf in proof_instances {
-        let ProofInstance {proof, public_input} = pf;
+        let ProofInstance {
+            proof,
+            public_input,
+        } = pf;
 
         let mut ic = pvk.ic[0].into_projective();
         for (i, b) in public_input.iter().zip(pvk.ic.iter().skip(1)) {
             ic.add_assign(&b.mul(i.into_repr()));
-    }
+        }
         let ic = E::pairing(ic.into_affine().clone(), pvk.vk.gamma_g2.clone());
         ics.push(ic);
 
-        c_acc +=  &proof.c.into_projective();
+        c_acc += &proof.c.into_projective();
 
         let ml = E::miller_loop(&[(&proof.a.prepare(), &proof.b.prepare())]);
         ml_ab.push(ml);
@@ -89,20 +88,20 @@ pub fn batch_verify<'a, E: Engine>(
 
     let mut PI = pvk.alpha_g1_beta_g2 * &ics[0];
     for ic in ics.iter().skip(1) {
-        PI *=  &pvk.alpha_g1_beta_g2;
-        PI *=  &ic;
-    };
+        PI *= &pvk.alpha_g1_beta_g2;
+        PI *= &ic;
+    }
 
     c_acc = c_acc.neg();
-    let cML = E::miller_loop(&[(&c_acc.into_affine().prepare(), &pvk.vk.delta_g2.prepare())]); 
+    let c_ml = E::miller_loop(&[(&c_acc.into_affine().prepare(), &pvk.vk.delta_g2.prepare())]);
 
-    let mut MC = cML;
-    for i in ml_ab  {
-        MC *= &i
-    };
+    let mut mc = c_ml;
+    for i in ml_ab {
+        mc *= &i
+    }
 
-    let F = E::final_exponentiation(&MC);
+    let f = E::final_exponentiation(&mc);
 
-    let success = F.unwrap() == PI;
+    let success = f.unwrap() == PI;
     Ok((success, PI))
 }

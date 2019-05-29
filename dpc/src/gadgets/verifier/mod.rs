@@ -37,11 +37,10 @@ pub trait NIZKBatchVerifierGadget<N: NIZK, E: PairingEngine, PairingE: PairingEn
         verification_key: &Self::VerificationKeyGadget,
         public_inputs: &mut [I],
         proof_gadgets: &[Self::ProofGadget],
-        PI: PairingE::Fqk
-
+        PI: PairingE::Fqk,
     ) -> Result<(), SynthesisError>
     where
         CS: ConstraintSystem<E>,
         I: Iterator<Item = &'a T>,
-        T: 'a + ToBitsGadget<E> + ?Sized,;
+        T: 'a + ToBitsGadget<E> + ?Sized;
 }

@@ -90,7 +90,7 @@ mod test {
         let params = {
             let c = Blake2sBench::<Curve> {
                 num_bytes,
-                dummy:     None,
+                dummy: None,
             };
             generate_random_parameters(c, rng).unwrap()
         };
@@ -122,7 +122,7 @@ mod test {
         let params = {
             let c = Blake2sBench::<Curve> {
                 num_bytes,
-                dummy:     None,
+                dummy: None,
             };
             generate_random_parameters(c, rng).unwrap()
         };
@@ -153,7 +153,7 @@ mod test {
         let params = {
             let c = Blake2sBench::<Curve> {
                 num_bytes,
-                dummy:     None,
+                dummy: None,
             };
             generate_random_parameters(c, rng).unwrap()
         };

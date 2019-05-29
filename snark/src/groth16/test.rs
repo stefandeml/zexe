@@ -1,8 +1,8 @@
 mod bls12_377 {
     use crate::{
         groth16::{
-            create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
-            batch_verify, ProofInstance
+            batch_verify, create_random_proof, generate_random_parameters, prepare_verifying_key,
+            verify_proof, ProofInstance,
         },
         Circuit, ConstraintSystem, SynthesisError,
     };
@@ -69,7 +69,7 @@ mod bls12_377 {
             assert!(!verify_proof(&pvk, &proof, &[a]).unwrap());
         }
     }
-        #[test]
+    #[test]
     fn prove_and_verify_batch() {
         struct MySillyCircuit<E: PairingEngine> {
             a: Option<E::Fr>,
@@ -115,7 +115,7 @@ mod bls12_377 {
             c1.mul_assign(&b1);
 
             let a2 = Fr::rand(rng);
-            let b2= Fr::rand(rng);
+            let b2 = Fr::rand(rng);
             let mut c2 = a2;
             c2.mul_assign(&b2);
 
@@ -141,18 +141,18 @@ mod bls12_377 {
 
             let mut proof_instances = Vec::new();
 
-            //TODO: is there a better way to do this?
+            // TODO: is there a better way to do this?
             let public_input1 = [c1];
             let public_input2 = [c2];
 
-            proof_instances.push(ProofInstance{ 
-                proof: proof1,
-                public_input: &public_input1
+            proof_instances.push(ProofInstance {
+                proof:        proof1,
+                public_input: &public_input1,
             });
 
-            proof_instances.push(ProofInstance{ 
-                proof: proof2,
-                public_input: &public_input2 
+            proof_instances.push(ProofInstance {
+                proof:        proof2,
+                public_input: &public_input2,
             });
 
             assert!(batch_verify(&pvk, &proof_instances).unwrap().0);

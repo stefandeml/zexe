@@ -406,7 +406,7 @@ pub fn blake2s<E: Engine, CS: ConstraintSystem<E>>(
 
 #[cfg(test)]
 mod test {
-    
+
     // use pairing::bls12_381::{Bls12};
     // use ::circuit::boolean::{Boolean, AllocatedBit};
     // use ::circuit::test::TestConstraintSystem;
@@ -417,8 +417,7 @@ mod test {
     use algebra::curves::bls12_381::Bls12_381 as Bls12;
     use snark::ConstraintSystem;
     use snark_gadgets::{
-        bits::boolean::AllocatedBit,
-        test_constraint_system::TestConstraintSystem,
+        bits::boolean::AllocatedBit, test_constraint_system::TestConstraintSystem,
         utils::AllocGadget,
     };
 
