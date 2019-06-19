@@ -1,19 +1,11 @@
-// use pairing::{
-//     Engine,
-//     CurveAffine,
-//     EncodedPoint
-// };
-
 use crate::SynthesisError;
-use algebra::{bytes::ToBytes, PairingCurve, PairingEngine};
+use algebra::{bytes::ToBytes, bytes::FromBytes, PairingCurve, PairingEngine};
 use std::{
-    io::{self, Result as IoResult, Write},
+    io::{self, Read, Result as IoResult, Write},
     sync::Arc,
 };
-// use crate::source::SourceBuilder;
-// use std::io::{self, Read, Write};
-// use std::sync::Arc;
-// use byteorder::{BigEndian, WriteBytesExt, ReadBytesExt};
+use source::SourceBuilder;
+use byteorder::{BigEndian, WriteBytesExt, ReadBytesExt};
 
 // #[cfg(test)]
 // mod tests;
@@ -47,10 +39,17 @@ impl<E: PairingEngine> PartialEq for Proof<E> {
 
 impl<E: PairingEngine> ToBytes for Proof<E> {
     #[inline]
-    fn write<W: Write>(&self, mut writer: W) -> io::Result<()> {
+    fn write<W: Write>(&self, mut writer: W) -> IoResult<()> {
         self.a.write(&mut writer)?;
         self.b.write(&mut writer)?;
         self.c.write(&mut writer)
+    }
+}
+
+impl<E:PairingEngine> FromBytes for Proof<E> {
+    #[inline]
+    fn read<R: Read>(_bytes: R) -> IoResult<Self> {
+        Proof::read(_bytes)
     }
 }
 
@@ -69,29 +68,25 @@ pub struct ProofInstance<'a, E: PairingEngine> {
     pub proof:        Proof<E>,
     pub public_input: &'a [E::Fr],
 }
-// keep this for now as serialisation  might be useful and currently
-// throws not implemented exception in zexe
 
 // impl<E: PairingEngine> Proof<E> {
 //     pub fn write<W: Write>(
 //         &self,
 //         mut writer: W
-//     ) -> io::Result<()>
+//     ) -> IoResult<()>
 //     {
-//         writer.write_all(self.a.into_compressed().as_ref())?;
-//         writer.write_all(self.b.into_compressed().as_ref())?;
-//         writer.write_all(self.c.into_compressed().as_ref())?;
-
-//         Ok(())
+//         self.a.write(&mut writer)?;
+//         self.b.write(&mut writer)?;
+//         self.c.write(&mut writer)
 //     }
-
+//
 //     pub fn read<R: Read>(
 //         mut reader: R
 //     ) -> io::Result<Self>
 //     {
-//         let mut g1_repr = <E::G1Affine as CurveAffine>::Compressed::empty();
-//         let mut g2_repr = <E::G2Affine as CurveAffine>::Compressed::empty();
-
+//         let mut g1_repr = E::G1Affine::zero();
+//         let mut g2_repr = E::G2Affine::zero();
+//
 //         reader.read_exact(g1_repr.as_mut())?;
 //         let a = g1_repr
 //                 .into_affine()
@@ -101,7 +96,7 @@ pub struct ProofInstance<'a, E: PairingEngine> {
 // infinity"))                 } else {
 //                     Ok(e)
 //                 })?;
-
+//
 //         reader.read_exact(g2_repr.as_mut())?;
 //         let b = g2_repr
 //                 .into_affine()
@@ -111,9 +106,9 @@ pub struct ProofInstance<'a, E: PairingEngine> {
 // infinity"))                 } else {
 //                     Ok(e)
 //                 })?;
-
-//         reader.read_exact(g1_repr.as_mut())?;
-//         let c = g1_repr
+//
+//         reader.read_exact(g1_repr2.as_mut())?;
+//         let c = g1_repr2
 //                 .into_affine()
 //                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
 //                 .and_then(|e| if e.is_zero() {
@@ -121,7 +116,7 @@ pub struct ProofInstance<'a, E: PairingEngine> {
 // infinity"))                 } else {
 //                     Ok(e)
 //                 })?;
-
+//
 //         Ok(Proof {
 //             a: a,
 //             b: b,
@@ -199,89 +194,96 @@ impl<E: PairingEngine> ToBytes for VerifyingKey<E> {
     }
 }
 
+impl<E:PairingEngine> FromBytes for VerifyingKey<E> {
+    #[inline]
+    fn read<R: Read>(_bytes: R) -> IoResult<Self> {
+        VerifyingKey::read(_bytes)
+    }
+}
+
 // keep this for now as serialisation  might be useful and currently
 // throws not implemented exception in zexe
-// impl<E: PairingEngine> VerifyingKey<E> {
-//     pub fn write<W: Write>(
-//         &self,
-//         mut writer: W
-//     ) -> io::Result<()>
-//     {
-//         writer.write_all(self.alpha_g1.into_uncompressed().as_ref())?;
-//         writer.write_all(self.beta_g1.into_uncompressed().as_ref())?;
-//         writer.write_all(self.beta_g2.into_uncompressed().as_ref())?;
-//         writer.write_all(self.gamma_g2.into_uncompressed().as_ref())?;
-//         writer.write_all(self.delta_g1.into_uncompressed().as_ref())?;
-//         writer.write_all(self.delta_g2.into_uncompressed().as_ref())?;
+ impl<E: PairingEngine> VerifyingKey<E> {
+     pub fn write<W: Write>(
+         &self,
+         mut writer: W
+     ) -> io::Result<()>
+     {
+         self.write(&mut writer)
+//         writer.write_all(self.alpha_g1.as_ref())?;
+//         writer.write_all(self.beta_g1.as_ref())?;
+//         writer.write_all(self.beta_g2.as_ref())?;
+//         writer.write_all(self.gamma_g2.as_ref())?;
+//         writer.write_all(self.delta_g1.as_ref())?;
+//         writer.write_all(self.delta_g2.as_ref())?;
 //         writer.write_u32::<BigEndian>(self.ic.len() as u32)?;
 //         for ic in &self.ic {
-//             writer.write_all(ic.into_uncompressed().as_ref())?;
+//             writer.write_all(ic.as_ref())?;
 //         }
-
+//
 //         Ok(())
-//     }
+     }
 
-//     pub fn read<R: Read>(
-//         mut reader: R
-//     ) -> io::Result<Self>
-//     {
-//         let mut g1_repr = <E::G1Affine as
-// CurveAffine>::Uncompressed::empty();         let mut g2_repr = <E::G2Affine
-// as CurveAffine>::Uncompressed::empty();
+     pub fn read<R: Read>(
+         mut reader: R
+     ) -> io::Result<Self>
+     {
+         let mut g1_repr = <E::G1Affine as CurveAffine>::zero();
+         let mut g2_repr = <E::G2Affine as CurveAffine>::zero();
 
-//         reader.read_exact(g1_repr.as_mut())?;
-//         let alpha_g1 = g1_repr.into_affine().map_err(|e|
-// io::Error::new(io::ErrorKind::InvalidData, e))?;
+         reader.read_exact(g1_repr.as_mut())?;
+         let alpha_g1 = g1_repr.into_affine().map_err(|e|
+ io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-//         reader.read_exact(g1_repr.as_mut())?;
-//         let beta_g1 = g1_repr.into_affine().map_err(|e|
-// io::Error::new(io::ErrorKind::InvalidData, e))?;
+         reader.read_exact(g1_repr.as_mut())?;
+         let beta_g1 = g1_repr.into_affine().map_err(|e|
+ io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-//         reader.read_exact(g2_repr.as_mut())?;
-//         let beta_g2 = g2_repr.into_affine().map_err(|e|
-// io::Error::new(io::ErrorKind::InvalidData, e))?;
+         reader.read_exact(g2_repr.as_mut())?;
+         let beta_g2 = g2_repr.into_affine().map_err(|e|
+ io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-//         reader.read_exact(g2_repr.as_mut())?;
-//         let gamma_g2 = g2_repr.into_affine().map_err(|e|
-// io::Error::new(io::ErrorKind::InvalidData, e))?;
+         reader.read_exact(g2_repr.as_mut())?;
+         let gamma_g2 = g2_repr.into_affine().map_err(|e|
+ io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-//         reader.read_exact(g1_repr.as_mut())?;
-//         let delta_g1 = g1_repr.into_affine().map_err(|e|
-// io::Error::new(io::ErrorKind::InvalidData, e))?;
+         reader.read_exact(g1_repr.as_mut())?;
+         let delta_g1 = g1_repr.into_affine().map_err(|e|
+ io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-//         reader.read_exact(g2_repr.as_mut())?;
-//         let delta_g2 = g2_repr.into_affine().map_err(|e|
-// io::Error::new(io::ErrorKind::InvalidData, e))?;
+         reader.read_exact(g2_repr.as_mut())?;
+         let delta_g2 = g2_repr.into_affine().map_err(|e|
+ io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-//         let ic_len = reader.read_u32::<BigEndian>()? as usize;
+         let ic_len = reader.read_u32::<BigEndian>()? as usize;
 
-//         let mut ic = vec![];
+         let mut ic = vec![];
 
-//         for _ in 0..ic_len {
-//             reader.read_exact(g1_repr.as_mut())?;
-//             let g1 = g1_repr
-//                      .into_affine()
-//                      .map_err(|e| io::Error::new(io::ErrorKind::InvalidData,
-// e))                      .and_then(|e| if e.is_zero() {
-//                          Err(io::Error::new(io::ErrorKind::InvalidData,
-// "point at infinity"))                      } else {
-//                          Ok(e)
-//                      })?;
+         for _ in 0..ic_len {
+             reader.read_exact(g1_repr.as_mut())?;
+             let g1 = g1_repr
+                      .into_affine()
+                      .map_err(|e| io::Error::new(io::ErrorKind::InvalidData,
+ e))                      .and_then(|e| if e.is_zero() {
+                          Err(io::Error::new(io::ErrorKind::InvalidData,
+ "point at infinity"))                      } else {
+                          Ok(e)
+                      })?;
 
-//             ic.push(g1);
-//         }
+             ic.push(g1);
+         }
 
-//         Ok(VerifyingKey {
-//             alpha_g1: alpha_g1,
-//             beta_g1: beta_g1,
-//             beta_g2: beta_g2,
-//             gamma_g2: gamma_g2,
-//             delta_g1: delta_g1,
-//             delta_g2: delta_g2,
-//             ic: ic
-//         })
-//     }
-// }
+         Ok(VerifyingKey {
+             alpha_g1: alpha_g1,
+             beta_g1: beta_g1,
+             beta_g2: beta_g2,
+             gamma_g2: gamma_g2,
+             delta_g1: delta_g1,
+             delta_g2: delta_g2,
+             ic: ic
+         })
+     }
+ }
 
 #[derive(Clone)]
 pub struct Parameters<E: PairingEngine> {
@@ -319,8 +321,6 @@ impl<E: PairingEngine> PartialEq for Parameters<E> {
     }
 }
 
-// keep this for now as serialisation  might be useful and currently
-// throws not implemented exception in zexe
 // impl<E: PairingEngine> Parameters<E> {
 //     pub fn write<W: Write>(
 //         &self,
@@ -328,45 +328,44 @@ impl<E: PairingEngine> PartialEq for Parameters<E> {
 //     ) -> io::Result<()>
 //     {
 //         self.vk.write(&mut writer)?;
-
+//
 //         writer.write_u32::<BigEndian>(self.h.len() as u32)?;
 //         for g in &self.h[..] {
-//             writer.write_all(g.into_uncompressed().as_ref())?;
+//             writer.write_all(g.as_ref())?;
 //         }
-
+//
 //         writer.write_u32::<BigEndian>(self.l.len() as u32)?;
 //         for g in &self.l[..] {
-//             writer.write_all(g.into_uncompressed().as_ref())?;
+//             writer.write_all(g.as_ref())?;
 //         }
-
+//
 //         writer.write_u32::<BigEndian>(self.a.len() as u32)?;
 //         for g in &self.a[..] {
-//             writer.write_all(g.into_uncompressed().as_ref())?;
+//             writer.write_all(g.as_ref())?;
 //         }
-
+//
 //         writer.write_u32::<BigEndian>(self.b_g1.len() as u32)?;
 //         for g in &self.b_g1[..] {
-//             writer.write_all(g.into_uncompressed().as_ref())?;
+//             writer.write_all(g.as_ref())?;
 //         }
-
+//
 //         writer.write_u32::<BigEndian>(self.b_g2.len() as u32)?;
 //         for g in &self.b_g2[..] {
-//             writer.write_all(g.into_uncompressed().as_ref())?;
+//             writer.write_all(g.as_ref())?;
 //         }
-
+//
 //         Ok(())
 //     }
-
+//
 //     pub fn read<R: Read>(
 //         mut reader: R,
 //         checked: bool
 //     ) -> io::Result<Self>
 //     {
 //         let read_g1 = |reader: &mut R| -> io::Result<E::G1Affine> {
-//             let mut repr = <E::G1Affine as
-// CurveAffine>::Uncompressed::empty();
-// reader.read_exact(repr.as_mut())?;
-
+//             let mut repr = <E::G1Affine as CurveAffine>::zero();
+//             reader.read_exact(repr.as_mut())?;
+//
 //             if checked {
 //                 repr
 //                 .into_affine()
@@ -381,12 +380,11 @@ impl<E: PairingEngine> PartialEq for Parameters<E> {
 //                 Ok(e)
 //             })
 //         };
-
+//
 //         let read_g2 = |reader: &mut R| -> io::Result<E::G2Affine> {
-//             let mut repr = <E::G2Affine as
-// CurveAffine>::Uncompressed::empty();
-// reader.read_exact(repr.as_mut())?;
-
+//             let mut repr = <E::G2Affine as CurveAffine>::zero();
+//             reader.read_exact(repr.as_mut())?;
+//
 //             if checked {
 //                 repr
 //                 .into_affine()
@@ -401,50 +399,50 @@ impl<E: PairingEngine> PartialEq for Parameters<E> {
 //                 Ok(e)
 //             })
 //         };
-
+//
 //         let vk = VerifyingKey::<E>::read(&mut reader)?;
-
+//
 //         let mut h = vec![];
 //         let mut l = vec![];
 //         let mut a = vec![];
 //         let mut b_g1 = vec![];
 //         let mut b_g2 = vec![];
-
+//
 //         {
 //             let len = reader.read_u32::<BigEndian>()? as usize;
 //             for _ in 0..len {
 //                 h.push(read_g1(&mut reader)?);
 //             }
 //         }
-
+//
 //         {
 //             let len = reader.read_u32::<BigEndian>()? as usize;
 //             for _ in 0..len {
 //                 l.push(read_g1(&mut reader)?);
 //             }
 //         }
-
+//
 //         {
 //             let len = reader.read_u32::<BigEndian>()? as usize;
 //             for _ in 0..len {
 //                 a.push(read_g1(&mut reader)?);
 //             }
 //         }
-
+//
 //         {
 //             let len = reader.read_u32::<BigEndian>()? as usize;
 //             for _ in 0..len {
 //                 b_g1.push(read_g1(&mut reader)?);
 //             }
 //         }
-
+//
 //         {
 //             let len = reader.read_u32::<BigEndian>()? as usize;
 //             for _ in 0..len {
 //                 b_g2.push(read_g2(&mut reader)?);
 //             }
 //         }
-
+//
 //         Ok(Parameters {
 //             vk: vk,
 //             h: Arc::new(h),

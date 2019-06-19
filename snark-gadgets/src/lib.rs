@@ -55,6 +55,8 @@ pub mod groups;
 
 pub mod pairing;
 
+//pub mod num;
+
 pub trait Assignment<T> {
     fn get(self) -> Result<T, SynthesisError>;
 }
