@@ -5,7 +5,6 @@ use std::io::{self, Read, Result as IoResult, Write};
 use algebra::{bytes::FromBytes, curves::AffineCurve as CurveAffine};
 use algebra::bytes::ToBytes;
 use byteorder::{BigEndian, WriteBytesExt, ReadBytesExt};
-use std::sync::Arc;
 mod r1cs_to_sap;
 
 mod generator;
