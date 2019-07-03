@@ -140,6 +140,7 @@ impl<E: PairingEngine> Default for VerifyingKey<E> {
 }
 
 impl<E: PairingEngine> ToBytes for VerifyingKey<E> {
+    #[inline]
     fn write<W: Write>(&self, mut writer: W) -> IoResult<()> {
         self.alpha_g1.write(&mut writer)?;
         self.beta_g1.write(&mut writer)?;
@@ -234,6 +235,7 @@ impl<E: PairingEngine> PartialEq for Parameters<E> {
 }
 
 impl<E: PairingEngine> ToBytes for Parameters<E> {
+    #[inline]
     fn write<W: Write>(&self, mut writer: W) -> IoResult<()> {
         self.vk.write(&mut writer)?;
 
