@@ -1,5 +1,5 @@
 use crate::SynthesisError;
-use algebra::{bytes::ToBytes, bytes::FromBytes, PairingCurve, PairingEngine};
+use algebra::{bytes::ToBytes, bytes::FromBytes, curves::AffineCurve as CurveAffine, PairingCurve, PairingEngine};
 use std::{
     io::{self, Read, Result as IoResult, Write},
     sync::Arc,
@@ -48,8 +48,24 @@ impl<E: PairingEngine> ToBytes for Proof<E> {
 
 impl<E:PairingEngine> FromBytes for Proof<E> {
     #[inline]
-    fn read<R: Read>(_bytes: R) -> IoResult<Self> {
-        Proof::read(_bytes)
+    fn read<R: Read>(mut reader: R) -> IoResult<Self> {
+        let a = E::G1Affine::read(&mut reader).and_then(|e| if e.is_zero() {
+            Err(io::Error::new(io::ErrorKind::InvalidData, "point at infinity"))
+        } else {
+            Ok(e)
+        })?;
+        let b = E::G2Affine::read(&mut reader).and_then(|e| if e.is_zero() {
+            Err(io::Error::new(io::ErrorKind::InvalidData, "point at infinity"))
+        } else {
+            Ok(e)
+        })?;
+        let c = E::G1Affine::read(&mut reader).and_then(|e| if e.is_zero() {
+            Err(io::Error::new(io::ErrorKind::InvalidData, "point at infinity"))
+        } else {
+            Ok(e)
+        })?;
+
+        Ok(Self { a, b, c })
     }
 }
 
@@ -187,6 +203,7 @@ impl<E: PairingEngine> ToBytes for VerifyingKey<E> {
         self.gamma_g2.write(&mut writer)?;
         self.delta_g1.write(&mut writer)?;
         self.delta_g2.write(&mut writer)?;
+        writer.write_u32::<BigEndian>(self.ic.len() as u32)?;
         for q in &self.ic {
             q.write(&mut writer)?;
         }
@@ -196,20 +213,55 @@ impl<E: PairingEngine> ToBytes for VerifyingKey<E> {
 
 impl<E:PairingEngine> FromBytes for VerifyingKey<E> {
     #[inline]
-    fn read<R: Read>(_bytes: R) -> IoResult<Self> {
-        VerifyingKey::read(_bytes)
+    fn read<R: Read>(mut reader: R) -> IoResult<Self> {
+        let alpha_g1 = E::G1Affine::read(&mut reader).map_err(|e|
+            io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let beta_g1 = E::G1Affine::read(&mut reader).map_err(|e|
+            io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let beta_g2 = E::G2Affine::read(&mut reader).map_err(|e|
+            io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let gamma_g2 = E::G2Affine::read(&mut reader).map_err(|e|
+            io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let delta_g1 = E::G1Affine::read(&mut reader).map_err(|e|
+            io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let delta_g2 = E::G2Affine::read(&mut reader).map_err(|e|
+            io::Error::new(io::ErrorKind::InvalidData, e))?;
+
+        let ic_len = reader.read_u32::<BigEndian>()? as usize;
+        let mut ic = vec![];
+
+        for _ in 0..ic_len {
+            let g1 = E::G1Affine::read(&mut reader)
+                .map_err(|e|io::Error::new(io::ErrorKind::InvalidData, e))
+                .and_then(|e| if e.is_zero() {
+                    Err(io::Error::new(io::ErrorKind::InvalidData, "point at infinity"))
+                } else {
+                    Ok(e)
+                })?;
+            ic.push(g1);
+        }
+
+        Ok(VerifyingKey {
+            alpha_g1,
+            beta_g1,
+            beta_g2,
+            gamma_g2,
+            delta_g1,
+            delta_g2,
+            ic
+        })
     }
 }
 
 // keep this for now as serialisation  might be useful and currently
 // throws not implemented exception in zexe
- impl<E: PairingEngine> VerifyingKey<E> {
-     pub fn write<W: Write>(
-         &self,
-         mut writer: W
-     ) -> io::Result<()>
-     {
-         self.write(&mut writer)
+// impl<E: PairingEngine> VerifyingKey<E> {
+//     pub fn write<W: Write>(
+//         &self,
+//         mut writer: W
+//     ) -> io::Result<()>
+//     {
+//         self.write(&mut writer)
 //         writer.write_all(self.alpha_g1.as_ref())?;
 //         writer.write_all(self.beta_g1.as_ref())?;
 //         writer.write_all(self.beta_g2.as_ref())?;
@@ -222,68 +274,68 @@ impl<E:PairingEngine> FromBytes for VerifyingKey<E> {
 //         }
 //
 //         Ok(())
-     }
-
-     pub fn read<R: Read>(
-         mut reader: R
-     ) -> io::Result<Self>
-     {
-         let mut g1_repr = <E::G1Affine as CurveAffine>::zero();
-         let mut g2_repr = <E::G2Affine as CurveAffine>::zero();
-
-         reader.read_exact(g1_repr.as_mut())?;
-         let alpha_g1 = g1_repr.into_affine().map_err(|e|
- io::Error::new(io::ErrorKind::InvalidData, e))?;
-
-         reader.read_exact(g1_repr.as_mut())?;
-         let beta_g1 = g1_repr.into_affine().map_err(|e|
- io::Error::new(io::ErrorKind::InvalidData, e))?;
-
-         reader.read_exact(g2_repr.as_mut())?;
-         let beta_g2 = g2_repr.into_affine().map_err(|e|
- io::Error::new(io::ErrorKind::InvalidData, e))?;
-
-         reader.read_exact(g2_repr.as_mut())?;
-         let gamma_g2 = g2_repr.into_affine().map_err(|e|
- io::Error::new(io::ErrorKind::InvalidData, e))?;
-
-         reader.read_exact(g1_repr.as_mut())?;
-         let delta_g1 = g1_repr.into_affine().map_err(|e|
- io::Error::new(io::ErrorKind::InvalidData, e))?;
-
-         reader.read_exact(g2_repr.as_mut())?;
-         let delta_g2 = g2_repr.into_affine().map_err(|e|
- io::Error::new(io::ErrorKind::InvalidData, e))?;
-
-         let ic_len = reader.read_u32::<BigEndian>()? as usize;
-
-         let mut ic = vec![];
-
-         for _ in 0..ic_len {
-             reader.read_exact(g1_repr.as_mut())?;
-             let g1 = g1_repr
-                      .into_affine()
-                      .map_err(|e| io::Error::new(io::ErrorKind::InvalidData,
- e))                      .and_then(|e| if e.is_zero() {
-                          Err(io::Error::new(io::ErrorKind::InvalidData,
- "point at infinity"))                      } else {
-                          Ok(e)
-                      })?;
-
-             ic.push(g1);
-         }
-
-         Ok(VerifyingKey {
-             alpha_g1: alpha_g1,
-             beta_g1: beta_g1,
-             beta_g2: beta_g2,
-             gamma_g2: gamma_g2,
-             delta_g1: delta_g1,
-             delta_g2: delta_g2,
-             ic: ic
-         })
-     }
- }
+//     }
+//
+//     pub fn read<R: Read>(
+//         mut reader: R
+//     ) -> io::Result<Self>
+//     {
+//         let mut g1_repr = <E::G1Affine as CurveAffine>::zero();
+//         let mut g2_repr = <E::G2Affine as CurveAffine>::zero();
+//
+//         reader.read_exact(g1_repr.as_mut())?;
+//         let alpha_g1 = g1_repr.into_affine().map_err(|e|
+// io::Error::new(io::ErrorKind::InvalidData, e))?;
+//
+//         reader.read_exact(g1_repr.as_mut())?;
+//         let beta_g1 = g1_repr.into_affine().map_err(|e|
+// io::Error::new(io::ErrorKind::InvalidData, e))?;
+//
+//         reader.read_exact(g2_repr.as_mut())?;
+//         let beta_g2 = g2_repr.into_affine().map_err(|e|
+// io::Error::new(io::ErrorKind::InvalidData, e))?;
+//
+//         reader.read_exact(g2_repr.as_mut())?;
+//         let gamma_g2 = g2_repr.into_affine().map_err(|e|
+// io::Error::new(io::ErrorKind::InvalidData, e))?;
+//
+//         reader.read_exact(g1_repr.as_mut())?;
+//         let delta_g1 = g1_repr.into_affine().map_err(|e|
+// io::Error::new(io::ErrorKind::InvalidData, e))?;
+//
+//         reader.read_exact(g2_repr.as_mut())?;
+//         let delta_g2 = g2_repr.into_affine().map_err(|e|
+// io::Error::new(io::ErrorKind::InvalidData, e))?;
+//
+//         let ic_len = reader.read_u32::<BigEndian>()? as usize;
+//
+//         let mut ic = vec![];
+//
+//         for _ in 0..ic_len {
+//             reader.read_exact(g1_repr.as_mut())?;
+//             let g1 = g1_repr
+//                      .into_affine()
+//                      .map_err(|e| io::Error::new(io::ErrorKind::InvalidData,
+// e))                      .and_then(|e| if e.is_zero() {
+//                          Err(io::Error::new(io::ErrorKind::InvalidData,
+// "point at infinity"))                      } else {
+//                          Ok(e)
+//                      })?;
+//
+//             ic.push(g1);
+//         }
+//
+//         Ok(VerifyingKey {
+//             alpha_g1: alpha_g1,
+//             beta_g1: beta_g1,
+//             beta_g2: beta_g2,
+//             gamma_g2: gamma_g2,
+//             delta_g1: delta_g1,
+//             delta_g2: delta_g2,
+//             ic: ic
+//         })
+//     }
+// }
 
 #[derive(Clone)]
 pub struct Parameters<E: PairingEngine> {
@@ -318,6 +370,118 @@ impl<E: PairingEngine> PartialEq for Parameters<E> {
             && self.a == other.a
             && self.b_g1 == other.b_g1
             && self.b_g2 == other.b_g2
+    }
+}
+
+impl<E: PairingEngine> ToBytes for Parameters<E> {
+    fn write<W: Write>(&self, mut writer: W) -> IoResult<()> {
+        self.vk.write(&mut writer)?;
+
+        writer.write_u32::<BigEndian>(self.h.len() as u32)?;
+        for v in &self.h[..] {
+            v.write(&mut writer)?;
+        }
+
+        writer.write_u32::<BigEndian>(self.l.len() as u32)?;
+        for v in &self.l[..] {
+            v.write(&mut writer)?;
+        }
+
+        writer.write_u32::<BigEndian>(self.a.len() as u32)?;
+        for v in &self.a[..] {
+            v.write(&mut writer)?;
+        }
+
+        writer.write_u32::<BigEndian>(self.b_g1.len() as u32)?;
+        for v in &self.b_g1[..] {
+            v.write(&mut writer)?;
+        }
+
+        writer.write_u32::<BigEndian>(self.b_g2.len() as u32)?;
+        for v in &self.b_g2[..] {
+            v.write(&mut writer)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl<E:PairingEngine> FromBytes for Parameters<E> {
+    #[inline]
+    fn read<R: Read>(mut reader: R) -> IoResult<Self> {
+        let vk = VerifyingKey::read(&mut reader)?;
+
+
+        let read_g1 = |mut r: &mut R| -> io::Result<E::G1Affine> {
+            E::G1Affine::read(&mut r)
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+                .and_then(|e| if e.is_zero() {
+                    Err(io::Error::new(io::ErrorKind::InvalidData, "point at infinity"))
+                } else {
+                    Ok(e)
+                })
+        };
+
+        let read_g2 = |mut r: &mut R| -> io::Result<E::G2Affine> {
+            E::G2Affine::read(&mut r)
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+                .and_then(|e| if e.is_zero() {
+                    Err(io::Error::new(io::ErrorKind::InvalidData, "point at infinity"))
+                } else {
+                    Ok(e)
+                })
+        };
+
+        let mut h = vec![];
+        let mut l = vec![];
+        let mut a = vec![];
+        let mut b_g1 = vec![];
+        let mut b_g2 = vec![];
+
+
+        {
+            let len = reader.read_u32::<BigEndian>()? as usize;
+            for _ in 0..len {
+                h.push(read_g1(&mut reader)?);
+            }
+        }
+
+        {
+            let len = reader.read_u32::<BigEndian>()? as usize;
+            for _ in 0..len {
+                l.push(read_g1(&mut reader)?);
+            }
+        }
+
+        {
+            let len = reader.read_u32::<BigEndian>()? as usize;
+            for _ in 0..len {
+                a.push(read_g1(&mut reader)?);
+            }
+        }
+
+        {
+            let len = reader.read_u32::<BigEndian>()? as usize;
+            for _ in 0..len {
+                b_g1.push(read_g1(&mut reader)?);
+            }
+        }
+
+        {
+            let len = reader.read_u32::<BigEndian>()? as usize;
+            for _ in 0..len {
+                b_g2.push(read_g2(&mut reader)?);
+            }
+        }
+
+        Ok(Parameters {
+            vk: vk,
+            h: Arc::new(h),
+            l: Arc::new(l),
+            a: Arc::new(a),
+            b_g1: Arc::new(b_g1),
+            b_g2: Arc::new(b_g2)
+        })
     }
 }
 
