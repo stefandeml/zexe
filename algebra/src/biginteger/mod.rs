@@ -3,11 +3,11 @@ use crate::{
     fields::BitIterator,
 };
 use rand::{Rand, Rng};
+use serde::{Deserialize, Serialize};
 use std::{
     fmt::{Debug, Display},
     io::{Read, Result as IoResult, Write},
 };
-
 #[macro_use]
 mod macros;
 
