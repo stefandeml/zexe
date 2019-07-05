@@ -26,7 +26,8 @@ byteorder = { version = "1" }
 rand = { version = "0.4" }
 rand_derive = { version = "0.3" }
 derivative = { version = "1" }
-
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 failure = { version = "0.1.1" }
 failure_derive = { version = "0.1.1" }
 
