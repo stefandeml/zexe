@@ -7,7 +7,8 @@ use std::{
     fmt::{Debug, Display},
     io::{Read, Result as IoResult, Write},
 };
-
+use serde::Serialize;
+use serde::Deserialize;
 #[macro_use]
 mod macros;
 
