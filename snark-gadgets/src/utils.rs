@@ -153,6 +153,21 @@ where
     fn cost() -> usize;
 }
 
+/// If condition is `true`, return (`second`, `first`); else, return (`first`, `second`).
+pub trait CondReverseGadget<E: PairingEngine>
+where
+    Self: Sized,
+{
+    fn conditionally_reverse<CS: ConstraintSystem<E>>(
+        cs: CS,
+        cond: &Boolean,
+        first: &Self,
+        second: &Self,
+    ) -> Result<(Self, Self), SynthesisError>;
+
+    fn cost() -> usize;
+}
+
 /// Uses two bits to perform a lookup into a table
 pub trait TwoBitLookupGadget<E: PairingEngine>
 where

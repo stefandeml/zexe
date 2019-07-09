@@ -18,6 +18,7 @@ use crate::{
     Assignment,
     ConstraintVar::{self, *},
 };
+use crate::utils::CondReverseGadget;
 
 #[derive(Derivative)]
 #[derivative(Debug(bound = "E: Debug"))]
@@ -479,6 +480,54 @@ impl<E: PairingEngine> CondSelectGadget<E> for FpGadget<E> {
         1
     }
 }
+
+impl<E: PairingEngine> CondReverseGadget<E> for FpGadget<E> {
+    #[inline]
+    fn conditionally_reverse<CS: ConstraintSystem<E>>(
+        mut cs: CS,
+        cond: &Boolean,
+        first: &Self,
+        second: &Self
+    ) -> Result<(Self, Self), SynthesisError> {
+
+        // Allocate the first element to be returned
+        let f = Self::alloc(
+            cs.ns(|| "conditional reversal result 1" ),
+            || {
+                cond.get_value()
+                    .and_then(|cond| if cond { second } else { first }.get_value())
+                    .get()
+            })?;
+
+        cs.enforce(
+            ||"first conditional reversal",
+            |lc| (&first.variable - &second.variable) + lc,
+            |_| cond.lc(CS::one(), E::Fr::one()),
+            |lc| (&first.variable - &f.variable) + lc
+        );
+
+        // Allocate the second element to be returned
+        let s = Self::alloc(
+            cs.ns(|| "conditional reversal result 2" ),
+            || {
+                cond.get_value()
+                    .and_then(|cond| if cond { first } else { second }.get_value())
+                    .get()
+            })?;
+
+        cs.enforce(
+            ||"second conditional reversal",
+            |lc| (&second.variable - &first.variable) + lc,
+            |_| cond.lc(CS::one(), E::Fr::one()),
+            |lc| (&second.variable - &s.variable) + lc
+        );
+
+        Ok((f, s))
+    }
+
+    fn cost() -> usize { 2 }
+}
+
 /// Uses two bits to perform a lookup into a table
 /// `b` is little-endian: `b[0]` is LSB.
 impl<E: PairingEngine> TwoBitLookupGadget<E> for FpGadget<E> {
