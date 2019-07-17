@@ -34,6 +34,35 @@ impl<E: PairingEngine> FpGadget<E> {
     }
 }
 
+
+impl<E: PairingEngine> FpGadget<E> {
+
+    pub fn inputize<CS>(
+        &self,
+        mut cs: CS
+    ) -> Result<(), SynthesisError>
+        where CS: ConstraintSystem<E>
+    {
+        let input = cs.alloc_input(
+            || "input variable",
+            || {
+                Ok(self.value.get()?)
+            }
+        )?;
+
+        cs.enforce(
+            || "enforce input is correct",
+            |lc| lc + input,
+            |lc| lc + CS::one(),
+            |lc| &self.variable + lc
+        );
+
+        Ok(())
+    }
+
+}
+
+
 impl<E: PairingEngine> FieldGadget<E::Fr, E> for FpGadget<E> {
     type Variable = ConstraintVar<E>;
 
