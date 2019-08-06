@@ -458,11 +458,11 @@ where
 
     Ok(Parameters {
         vk,
-        h:  Arc::new(h.into_iter().map(|e| e.into_affine()).collect()),
-        l:  Arc::new(l.into_iter().map(|e| e.into_affine()).collect()),
+        h: Arc::new(h.into_iter().map(|e| e.into_affine()).collect()),
+        l: Arc::new(l.into_iter().map(|e| e.into_affine()).collect()),
 
         // Filter points at infinity away from A/B queries
-        a:    Arc::new(
+        a: Arc::new(
             a.into_iter()
                 .filter(|e| !e.is_zero())
                 .map(|e| e.into_affine())

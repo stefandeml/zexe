@@ -1,4 +1,3 @@
-
 use rand::Rng;
 
 // use variable base scalar multiexp with density support:
@@ -6,20 +5,16 @@ use super::multiexp::*;
 // use mock for multiexp worker
 use super::singlecore::Worker as MulExpWorker;
 
-use super::source::{
-    DensityTracker,
-    FullDensity
+use super::source::{DensityTracker, FullDensity};
+use algebra::{
+    fft::domain::Scalar, AffineCurve, Field, PairingEngine, PrimeField, ProjectiveCurve,
 };
 use futures::future::Future;
-use algebra::{
-    fft::domain::Scalar, msm::VariableBaseMSM, AffineCurve, Field, PairingEngine, PrimeField,
-    ProjectiveCurve,
-};
 
 use algebra::fft::domain::EvaluationDomain;
 
-use super::{Parameters, Proof, ParameterSource};
-use smallvec::SmallVec;
+use super::{ParameterSource, Proof};
+
 use std::{
     ops::{AddAssign, MulAssign},
     sync::Arc,
@@ -27,24 +22,15 @@ use std::{
 
 use algebra::fft::multicore::Worker;
 
-use crate::{
-    SynthesisError,
-    Circuit,
-    ConstraintSystem,
-    LinearCombination,
-    Variable,
-    Index
-};
-
+use crate::{Circuit, ConstraintSystem, Index, LinearCombination, SynthesisError, Variable};
 
 fn eval<E: PairingEngine>(
     lc: &LinearCombination<E>,
     mut input_density: Option<&mut DensityTracker>,
     mut aux_density: Option<&mut DensityTracker>,
     input_assignment: &[E::Fr],
-    aux_assignment: &[E::Fr]
-) -> E::Fr
-{
+    aux_assignment: &[E::Fr],
+) -> E::Fr {
     let mut acc = E::Fr::zero();
 
     for &(index, coeff) in lc.0.iter() {
@@ -62,32 +48,33 @@ fn eval<E: PairingEngine>(
                 if let Some(ref mut v) = aux_density {
                     v.inc(i);
                 }
-            }
+            },
         }
 
         if coeff == E::Fr::one() {
-           acc.add_assign(&tmp);
+            acc.add_assign(&tmp);
         } else {
-           tmp.mul_assign(&coeff);
-           acc.add_assign(&tmp);
+            tmp.mul_assign(&coeff);
+            acc.add_assign(&tmp);
         }
     }
 
     acc
-    // returns the result of a linear combination and updates input and aux denisites
+    // returns the result of a linear combination and updates input and aux
+    // denisites
 }
 
 // This is a proving assignment with densities precalculated
-pub struct PreparedProver<E: PairingEngine>{
+pub struct PreparedProver<E: PairingEngine> {
     assignment: ProvingAssignment<E>,
 }
 
 #[derive(Clone)]
 struct ProvingAssignment<E: PairingEngine> {
     // Density of queries
-    a_aux_density: DensityTracker,
+    a_aux_density:   DensityTracker,
     b_input_density: DensityTracker,
-    b_aux_density: DensityTracker,
+    b_aux_density:   DensityTracker,
 
     // Evaluations of A, B, C polynomials
     a: Vec<Scalar<E>>,
@@ -96,54 +83,49 @@ struct ProvingAssignment<E: PairingEngine> {
 
     // Assignments of variables
     input_assignment: Vec<E::Fr>,
-    aux_assignment: Vec<E::Fr>
+    aux_assignment:   Vec<E::Fr>,
 }
 
-pub fn prepare_prover<E, C>(
-    circuit: C,
-) -> Result<PreparedProver<E>, SynthesisError>
-    where E: PairingEngine, C: Circuit<E> 
+pub fn prepare_prover<E, C>(circuit: C) -> Result<PreparedProver<E>, SynthesisError>
+where
+    E: PairingEngine,
+    C: Circuit<E>,
 {
-    //empty init
+    // empty init
     let mut prover = ProvingAssignment {
-        a_aux_density: DensityTracker::new(),
-        b_input_density: DensityTracker::new(),
-        b_aux_density: DensityTracker::new(),
-        a: vec![],
-        b: vec![],
-        c: vec![],
+        a_aux_density:    DensityTracker::new(),
+        b_input_density:  DensityTracker::new(),
+        b_aux_density:    DensityTracker::new(),
+        a:                vec![],
+        b:                vec![],
+        c:                vec![],
         input_assignment: vec![],
-        aux_assignment: vec![]
+        aux_assignment:   vec![],
     };
 
-    //alloc one
+    // alloc one
     prover.alloc_input(|| "", || Ok(E::Fr::one()))?;
 
     // ??
     circuit.synthesize(&mut prover)?;
 
     for i in 0..prover.input_assignment.len() {
-        prover.enforce(|| "",
-            |lc| lc + Variable(Index::Input(i)),
-            |lc| lc,
-            |lc| lc,
-        );
+        prover.enforce(|| "", |lc| lc + Variable(Index::Input(i)), |lc| lc, |lc| lc);
     }
 
-    let prepared = PreparedProver {
-        assignment: prover
-    };
+    let prepared = PreparedProver { assignment: prover };
 
-    return Ok(prepared)
+    return Ok(prepared);
 }
 
-impl<E:PairingEngine> PreparedProver<E> {
+impl<E: PairingEngine> PreparedProver<E> {
     pub fn create_random_proof<R, P: ParameterSource<E>>(
-        & self,
+        &self,
         params: P,
-        rng: &mut R
+        rng: &mut R,
     ) -> Result<Proof<E>, SynthesisError>
-        where R: Rng
+    where
+        R: Rng,
     {
         let r = rng.gen();
         let s = rng.gen();
@@ -152,12 +134,11 @@ impl<E:PairingEngine> PreparedProver<E> {
     }
 
     pub fn create_proof<P: ParameterSource<E>>(
-        & self,
+        &self,
         mut params: P,
         r: E::Fr,
-        s: E::Fr
-    ) -> Result<Proof<E>, SynthesisError>
-    {
+        s: E::Fr,
+    ) -> Result<Proof<E>, SynthesisError> {
         let verbose = false;
 
         let prover = self.assignment.clone();
@@ -172,7 +153,9 @@ impl<E:PairingEngine> PreparedProver<E> {
             let mut a = EvaluationDomain::from_coeffs(prover.a).unwrap();
             let mut b = EvaluationDomain::from_coeffs(prover.b).unwrap();
             let mut c = EvaluationDomain::from_coeffs(prover.c).unwrap();
-            if verbose {eprintln!("H query domain size is {}", a.as_ref().len())};
+            if verbose {
+                eprintln!("H query domain size is {}", a.as_ref().len())
+            };
 
             // here a coset is a domain where denominator (z) does not vanish
             // inverse FFT is an interpolation
@@ -204,7 +187,12 @@ impl<E:PairingEngine> PreparedProver<E> {
             multiexp(&eworker, params.get_h(a.len())?, FullDensity, a)
         };
 
-        if verbose {eprintln!("{} seconds for prover for H evaluation (mostly FFT)", start.elapsed().as_millis() as f64 / 1000.0)};
+        if verbose {
+            eprintln!(
+                "{} seconds for prover for H evaluation (mostly FFT)",
+                start.elapsed().as_millis() as f64 / 1000.0
+            )
+        };
 
         let start = std::time::Instant::now();
 
@@ -212,38 +200,88 @@ impl<E:PairingEngine> PreparedProver<E> {
 
         // TODO: parallelize if it's even helpful
         // TODO: in large settings it may worth to parallelize
-        let input_assignment = Arc::new(prover.input_assignment.into_iter().map(|s| s.into_repr()).collect::<Vec<_>>());
-        let aux_assignment = Arc::new(prover.aux_assignment.into_iter().map(|s| s.into_repr()).collect::<Vec<_>>());
+        let input_assignment = Arc::new(
+            prover
+                .input_assignment
+                .into_iter()
+                .map(|s| s.into_repr())
+                .collect::<Vec<_>>(),
+        );
+        let aux_assignment = Arc::new(
+            prover
+                .aux_assignment
+                .into_iter()
+                .map(|s| s.into_repr())
+                .collect::<Vec<_>>(),
+        );
 
         let input_len = input_assignment.len();
         let aux_len = aux_assignment.len();
-        if verbose {eprintln!("H query is dense in G1,\nOther queries are {} elements in G1 and {} elements in G2",
-            2*(input_len + aux_len) + aux_len, input_len + aux_len)
+        if verbose {
+            eprintln!(
+                "H query is dense in G1,\nOther queries are {} elements in G1 and {} elements in \
+                 G2",
+                2 * (input_len + aux_len) + aux_len,
+                input_len + aux_len
+            )
         };
 
         // Run a dedicated process for dense vector
-        let l = multiexp(&eworker, params.get_l(aux_assignment.len())?, FullDensity, aux_assignment.clone());
+        let l = multiexp(
+            &eworker,
+            params.get_l(aux_assignment.len())?,
+            FullDensity,
+            aux_assignment.clone(),
+        );
 
         let a_aux_density_total = prover.a_aux_density.get_total_density();
 
-        let (a_inputs_source, a_aux_source) = params.get_a(input_assignment.len(), a_aux_density_total)?;
+        let (a_inputs_source, a_aux_source) =
+            params.get_a(input_assignment.len(), a_aux_density_total)?;
 
-        let a_inputs = multiexp(&eworker, a_inputs_source, FullDensity, input_assignment.clone());
-        let a_aux = multiexp(&eworker, a_aux_source, Arc::new(prover.a_aux_density), aux_assignment.clone());
+        let a_inputs = multiexp(
+            &eworker,
+            a_inputs_source,
+            FullDensity,
+            input_assignment.clone(),
+        );
+        let a_aux = multiexp(
+            &eworker,
+            a_aux_source,
+            Arc::new(prover.a_aux_density),
+            aux_assignment.clone(),
+        );
 
         let b_input_density = Arc::new(prover.b_input_density);
         let b_input_density_total = b_input_density.get_total_density();
         let b_aux_density = Arc::new(prover.b_aux_density);
         let b_aux_density_total = b_aux_density.get_total_density();
 
-        let (b_g1_inputs_source, b_g1_aux_source) = params.get_b_g1(b_input_density_total, b_aux_density_total)?;
+        let (b_g1_inputs_source, b_g1_aux_source) =
+            params.get_b_g1(b_input_density_total, b_aux_density_total)?;
 
-        let b_g1_inputs = multiexp(&eworker, b_g1_inputs_source, b_input_density.clone(), input_assignment.clone());
-        let b_g1_aux = multiexp(&eworker, b_g1_aux_source, b_aux_density.clone(), aux_assignment.clone());
+        let b_g1_inputs = multiexp(
+            &eworker,
+            b_g1_inputs_source,
+            b_input_density.clone(),
+            input_assignment.clone(),
+        );
+        let b_g1_aux = multiexp(
+            &eworker,
+            b_g1_aux_source,
+            b_aux_density.clone(),
+            aux_assignment.clone(),
+        );
 
-        let (b_g2_inputs_source, b_g2_aux_source) = params.get_b_g2(b_input_density_total, b_aux_density_total)?;
-        
-        let b_g2_inputs = multiexp(&eworker, b_g2_inputs_source, b_input_density, input_assignment);
+        let (b_g2_inputs_source, b_g2_aux_source) =
+            params.get_b_g2(b_input_density_total, b_aux_density_total)?;
+
+        let b_g2_inputs = multiexp(
+            &eworker,
+            b_g2_inputs_source,
+            b_input_density,
+            input_assignment,
+        );
         let b_g2_aux = multiexp(&eworker, b_g2_aux_source, b_aux_density, aux_assignment);
 
         if vk.delta_g1.is_zero() || vk.delta_g2.is_zero() {
@@ -282,26 +320,29 @@ impl<E:PairingEngine> PreparedProver<E> {
         g_c.add_assign(&h.wait()?);
         g_c.add_assign(&l.wait()?);
 
-        if verbose {eprintln!("{} seconds for prover for point multiplication", start.elapsed().as_millis() as f64 / 1000.0)};
+        if verbose {
+            eprintln!(
+                "{} seconds for prover for point multiplication",
+                start.elapsed().as_millis() as f64 / 1000.0
+            )
+        };
 
         Ok(Proof {
             a: g_a.into_affine(),
             b: g_b.into_affine(),
-            c: g_c.into_affine()
+            c: g_c.into_affine(),
         })
     }
 }
 
-
 impl<E: PairingEngine> ConstraintSystem<E> for ProvingAssignment<E> {
     type Root = Self;
 
-    fn alloc<F, A, AR>(
-        &mut self,
-        _: A,
-        f: F
-    ) -> Result<Variable, SynthesisError>
-        where F: FnOnce() -> Result<E::Fr, SynthesisError>, A: FnOnce() -> AR, AR: Into<String>
+    fn alloc<F, A, AR>(&mut self, _: A, f: F) -> Result<Variable, SynthesisError>
+    where
+        F: FnOnce() -> Result<E::Fr, SynthesisError>,
+        A: FnOnce() -> AR,
+        AR: Into<String>,
     {
         self.aux_assignment.push(f()?);
         self.a_aux_density.add_element();
@@ -310,12 +351,11 @@ impl<E: PairingEngine> ConstraintSystem<E> for ProvingAssignment<E> {
         Ok(Variable(Index::Aux(self.aux_assignment.len() - 1)))
     }
 
-    fn alloc_input<F, A, AR>(
-        &mut self,
-        _: A,
-        f: F
-    ) -> Result<Variable, SynthesisError>
-        where F: FnOnce() -> Result<E::Fr, SynthesisError>, A: FnOnce() -> AR, AR: Into<String>
+    fn alloc_input<F, A, AR>(&mut self, _: A, f: F) -> Result<Variable, SynthesisError>
+    where
+        F: FnOnce() -> Result<E::Fr, SynthesisError>,
+        A: FnOnce() -> AR,
+        AR: Into<String>,
     {
         self.input_assignment.push(f()?);
         self.b_input_density.add_element();
@@ -323,17 +363,13 @@ impl<E: PairingEngine> ConstraintSystem<E> for ProvingAssignment<E> {
         Ok(Variable(Index::Input(self.input_assignment.len() - 1)))
     }
 
-    fn enforce<A, AR, LA, LB, LC>(
-        &mut self,
-        _: A,
-        a: LA,
-        b: LB,
-        c: LC
-    )
-        where A: FnOnce() -> AR, AR: Into<String>,
-              LA: FnOnce(LinearCombination<E>) -> LinearCombination<E>,
-              LB: FnOnce(LinearCombination<E>) -> LinearCombination<E>,
-              LC: FnOnce(LinearCombination<E>) -> LinearCombination<E>
+    fn enforce<A, AR, LA, LB, LC>(&mut self, _: A, a: LA, b: LB, c: LC)
+    where
+        A: FnOnce() -> AR,
+        AR: Into<String>,
+        LA: FnOnce(LinearCombination<E>) -> LinearCombination<E>,
+        LB: FnOnce(LinearCombination<E>) -> LinearCombination<E>,
+        LC: FnOnce(LinearCombination<E>) -> LinearCombination<E>,
     {
         let a = a(LinearCombination::zero());
         let b = b(LinearCombination::zero());
@@ -347,14 +383,14 @@ impl<E: PairingEngine> ConstraintSystem<E> for ProvingAssignment<E> {
             None,
             Some(&mut self.a_aux_density),
             &self.input_assignment,
-            &self.aux_assignment
+            &self.aux_assignment,
         )));
         self.b.push(Scalar(eval(
             &b,
             Some(&mut self.b_input_density),
             Some(&mut self.b_aux_density),
             &self.input_assignment,
-            &self.aux_assignment
+            &self.aux_assignment,
         )));
         self.c.push(Scalar(eval(
             &c,
@@ -365,18 +401,19 @@ impl<E: PairingEngine> ConstraintSystem<E> for ProvingAssignment<E> {
             None,
             None,
             &self.input_assignment,
-            &self.aux_assignment
+            &self.aux_assignment,
         )));
     }
 
     fn push_namespace<NR, N>(&mut self, _: N)
-        where NR: Into<String>, N: FnOnce() -> NR
+    where
+        NR: Into<String>,
+        N: FnOnce() -> NR,
     {
         // Do nothing; we don't care about namespaces in this context.
     }
 
-    fn pop_namespace(&mut self)
-    {
+    fn pop_namespace(&mut self) {
         // Do nothing; we don't care about namespaces in this context.
     }
 
@@ -384,8 +421,8 @@ impl<E: PairingEngine> ConstraintSystem<E> for ProvingAssignment<E> {
         self
     }
 
-    //TODO: fix dummy implementation!!!!
-    fn num_constraints(& self) -> usize{
+    // TODO: fix dummy implementation!!!!
+    fn num_constraints(&self) -> usize {
         1
     }
 }
@@ -393,9 +430,12 @@ impl<E: PairingEngine> ConstraintSystem<E> for ProvingAssignment<E> {
 pub fn create_random_proof<E, C, R, P: ParameterSource<E>>(
     circuit: C,
     params: P,
-    rng: &mut R
+    rng: &mut R,
 ) -> Result<Proof<E>, SynthesisError>
-    where E: PairingEngine, C: Circuit<E>, R: Rng
+where
+    E: PairingEngine,
+    C: Circuit<E>,
+    R: Rng,
 {
     let r = rng.gen();
     let s = rng.gen();
@@ -407,21 +447,23 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
     circuit: C,
     mut params: P,
     r: E::Fr,
-    s: E::Fr
+    s: E::Fr,
 ) -> Result<Proof<E>, SynthesisError>
-    where E: PairingEngine, C: Circuit<E>
+where
+    E: PairingEngine,
+    C: Circuit<E>,
 {
     let verbose = false;
 
     let mut prover = ProvingAssignment {
-        a_aux_density: DensityTracker::new(),
-        b_input_density: DensityTracker::new(),
-        b_aux_density: DensityTracker::new(),
-        a: vec![],
-        b: vec![],
-        c: vec![],
+        a_aux_density:    DensityTracker::new(),
+        b_input_density:  DensityTracker::new(),
+        b_aux_density:    DensityTracker::new(),
+        a:                vec![],
+        b:                vec![],
+        c:                vec![],
         input_assignment: vec![],
-        aux_assignment: vec![]
+        aux_assignment:   vec![],
     };
 
     prover.alloc_input(|| "", || Ok(E::Fr::one()))?;
@@ -429,11 +471,7 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
     circuit.synthesize(&mut prover)?;
 
     for i in 0..prover.input_assignment.len() {
-        prover.enforce(|| "",
-            |lc| lc + Variable(Index::Input(i)),
-            |lc| lc,
-            |lc| lc,
-        );
+        prover.enforce(|| "", |lc| lc + Variable(Index::Input(i)), |lc| lc, |lc| lc);
     }
 
     let worker = Worker::new();
@@ -447,7 +485,9 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
         let mut a = EvaluationDomain::from_coeffs(prover.a).unwrap();
         let mut b = EvaluationDomain::from_coeffs(prover.b).unwrap();
         let mut c = EvaluationDomain::from_coeffs(prover.c).unwrap();
-        if verbose {eprintln!("H query domain size is {}", a.as_ref().len())};
+        if verbose {
+            eprintln!("H query domain size is {}", a.as_ref().len())
+        };
         // here a coset is a domain where denominator (z) does not vanish
         // inverse FFT is an interpolation
         a.ifft(&worker);
@@ -478,7 +518,12 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
         multiexp(&eworker, params.get_h(a.len())?, FullDensity, a)
     };
 
-    if verbose {eprintln!("{} seconds for prover for H evaluation (mostly FFT)", start.elapsed().as_millis() as f64 / 1000.0)};
+    if verbose {
+        eprintln!(
+            "{} seconds for prover for H evaluation (mostly FFT)",
+            start.elapsed().as_millis() as f64 / 1000.0
+        )
+    };
 
     let start = std::time::Instant::now();
 
@@ -486,32 +531,77 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
 
     // TODO: parallelize if it's even helpful
     // TODO: in large settings it may worth to parallelize
-    let input_assignment = Arc::new(prover.input_assignment.into_iter().map(|s| s.into_repr()).collect::<Vec<_>>());
-    let aux_assignment = Arc::new(prover.aux_assignment.into_iter().map(|s| s.into_repr()).collect::<Vec<_>>());
+    let input_assignment = Arc::new(
+        prover
+            .input_assignment
+            .into_iter()
+            .map(|s| s.into_repr())
+            .collect::<Vec<_>>(),
+    );
+    let aux_assignment = Arc::new(
+        prover
+            .aux_assignment
+            .into_iter()
+            .map(|s| s.into_repr())
+            .collect::<Vec<_>>(),
+    );
 
     // Run a dedicated process for dense vector
-    let l = multiexp(&eworker, params.get_l(aux_assignment.len())?, FullDensity, aux_assignment.clone());
+    let l = multiexp(
+        &eworker,
+        params.get_l(aux_assignment.len())?,
+        FullDensity,
+        aux_assignment.clone(),
+    );
 
     let a_aux_density_total = prover.a_aux_density.get_total_density();
 
-    let (a_inputs_source, a_aux_source) = params.get_a(input_assignment.len(), a_aux_density_total)?;
+    let (a_inputs_source, a_aux_source) =
+        params.get_a(input_assignment.len(), a_aux_density_total)?;
 
-    let a_inputs = multiexp(&eworker, a_inputs_source, FullDensity, input_assignment.clone());
-    let a_aux = multiexp(&eworker, a_aux_source, Arc::new(prover.a_aux_density), aux_assignment.clone());
+    let a_inputs = multiexp(
+        &eworker,
+        a_inputs_source,
+        FullDensity,
+        input_assignment.clone(),
+    );
+    let a_aux = multiexp(
+        &eworker,
+        a_aux_source,
+        Arc::new(prover.a_aux_density),
+        aux_assignment.clone(),
+    );
 
     let b_input_density = Arc::new(prover.b_input_density);
     let b_input_density_total = b_input_density.get_total_density();
     let b_aux_density = Arc::new(prover.b_aux_density);
     let b_aux_density_total = b_aux_density.get_total_density();
 
-    let (b_g1_inputs_source, b_g1_aux_source) = params.get_b_g1(b_input_density_total, b_aux_density_total)?;
+    let (b_g1_inputs_source, b_g1_aux_source) =
+        params.get_b_g1(b_input_density_total, b_aux_density_total)?;
 
-    let b_g1_inputs = multiexp(&eworker, b_g1_inputs_source, b_input_density.clone(), input_assignment.clone());
-    let b_g1_aux = multiexp(&eworker, b_g1_aux_source, b_aux_density.clone(), aux_assignment.clone());
+    let b_g1_inputs = multiexp(
+        &eworker,
+        b_g1_inputs_source,
+        b_input_density.clone(),
+        input_assignment.clone(),
+    );
+    let b_g1_aux = multiexp(
+        &eworker,
+        b_g1_aux_source,
+        b_aux_density.clone(),
+        aux_assignment.clone(),
+    );
 
-    let (b_g2_inputs_source, b_g2_aux_source) = params.get_b_g2(b_input_density_total, b_aux_density_total)?;
-    
-    let b_g2_inputs = multiexp(&eworker, b_g2_inputs_source, b_input_density, input_assignment);
+    let (b_g2_inputs_source, b_g2_aux_source) =
+        params.get_b_g2(b_input_density_total, b_aux_density_total)?;
+
+    let b_g2_inputs = multiexp(
+        &eworker,
+        b_g2_inputs_source,
+        b_input_density,
+        input_assignment,
+    );
     let b_g2_aux = multiexp(&eworker, b_g2_aux_source, b_aux_density, aux_assignment);
 
     if vk.delta_g1.is_zero() || vk.delta_g2.is_zero() {
@@ -550,11 +640,16 @@ pub fn create_proof<E, C, P: ParameterSource<E>>(
     g_c.add_assign(&h.wait()?);
     g_c.add_assign(&l.wait()?);
 
-    if verbose {eprintln!("{} seconds for prover for point multiplication", start.elapsed().as_millis() as f64 / 1000.0)};
+    if verbose {
+        eprintln!(
+            "{} seconds for prover for point multiplication",
+            start.elapsed().as_millis() as f64 / 1000.0
+        )
+    };
 
     Ok(Proof {
         a: g_a.into_affine(),
         b: g_b.into_affine(),
-        c: g_c.into_affine()
+        c: g_c.into_affine(),
     })
 }

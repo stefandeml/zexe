@@ -36,12 +36,12 @@ pub struct VerifyingKeyGadget<
     P: PairingGadget<PairingE, ConstraintE>,
 > {
     pub alpha_g1: P::G1Gadget,
-    pub beta_g1: P::G1Gadget,
+    pub beta_g1:  P::G1Gadget,
     pub beta_g2:  P::G2Gadget,
     pub gamma_g2: P::G2Gadget,
     pub delta_g1: P::G1Gadget,
     pub delta_g2: P::G2Gadget,
-    pub ic:      Vec<P::G1Gadget>,
+    pub ic:       Vec<P::G1Gadget>,
 }
 
 impl<
@@ -55,11 +55,11 @@ impl<
         mut cs: CS,
     ) -> Result<PreparedVerifyingKeyGadget<PairingE, ConstraintE, P>, SynthesisError> {
         let mut cs = cs.ns(|| "Preparing verifying key");
-        
-        let alpha_g1_pc = P::prepare_g1(&mut cs.ns(|| "Prepare alpha_g1_pc"), &self.alpha_g1)?; 
+
+        let alpha_g1_pc = P::prepare_g1(&mut cs.ns(|| "Prepare alpha_g1_pc"), &self.alpha_g1)?;
         let beta_g2_pc = P::prepare_g2(&mut cs.ns(|| "Prepare beta_g2_pc"), &self.beta_g2)?;
         let gamma_g2_pc = P::prepare_g2(&mut cs.ns(|| "Prepare gamma_g2_pc"), &self.gamma_g2)?;
-        let delta_g2_pc = P::prepare_g2(&mut cs.ns(|| "Prepare delta_g2_pc"), &self.delta_g2)?; 
+        let delta_g2_pc = P::prepare_g2(&mut cs.ns(|| "Prepare delta_g2_pc"), &self.delta_g2)?;
 
         Ok(PreparedVerifyingKeyGadget {
             alpha_g1: self.alpha_g1.clone(),
@@ -72,7 +72,7 @@ impl<
             beta_g2_pc,
             gamma_g2_pc,
             delta_g2_pc,
-            ic: self.ic.clone()
+            ic: self.ic.clone(),
         })
     }
 }
@@ -87,17 +87,17 @@ pub struct PreparedVerifyingKeyGadget<
     ConstraintE: PairingEngine,
     P: PairingGadget<PairingE, ConstraintE>,
 > {
-    pub alpha_g1: P::G1Gadget,
-    pub beta_g1: P::G1Gadget,
-    pub beta_g2:  P::G2Gadget,
-    pub gamma_g2: P::G2Gadget,
-    pub delta_g1: P::G1Gadget,
-    pub delta_g2: P::G2Gadget, 
+    pub alpha_g1:    P::G1Gadget,
+    pub beta_g1:     P::G1Gadget,
+    pub beta_g2:     P::G2Gadget,
+    pub gamma_g2:    P::G2Gadget,
+    pub delta_g1:    P::G1Gadget,
+    pub delta_g2:    P::G2Gadget,
     pub alpha_g1_pc: P::G1PreparedGadget,
-    pub beta_g2_pc: P::G2PreparedGadget,
-    pub gamma_g2_pc: P::G2PreparedGadget, //could be negated during preparation
+    pub beta_g2_pc:  P::G2PreparedGadget,
+    pub gamma_g2_pc: P::G2PreparedGadget, // could be negated during preparation
     pub delta_g2_pc: P::G2PreparedGadget, // could be negated during preparation
-    pub ic:      Vec<P::G1Gadget>, 
+    pub ic:          Vec<P::G1Gadget>,
 }
 
 pub struct Groth16VerifierGadget<PairingE, ConstraintE, P>
@@ -137,10 +137,10 @@ where
         // create PreparedVerifyingKeyGadget
         let pvk = vk.prepare(&mut cs.ns(|| "Prepare vk"))?;
 
-    // A * B + inputs * (-gamma) + C * (-delta) = alpha * beta
-    // where input  = \sum_{i=0}^l input_i pvk.ic[i] 
+        // A * B + inputs * (-gamma) + C * (-delta) = alpha * beta
+        // where input  = \sum_{i=0}^l input_i pvk.ic[i]
 
-        //TODO: rename to inputs
+        // TODO: rename to inputs
         let g_psi = {
             let mut cs = cs.ns(|| "Process input");
             let mut g_psi = pvk.ic[0].clone();
@@ -160,42 +160,37 @@ where
             g_psi
         };
 
-
-
         let test1_exp = {
-
             let a_prep = P::prepare_g1(cs.ns(|| "A prep"), &proof.a)?;
             let b_prep = P::prepare_g2(cs.ns(|| "B prep"), &proof.b)?;
-            let neg_c =  proof.c.clone().negate(cs.ns(|| "neg C"))?;
+            let neg_c = proof.c.clone().negate(cs.ns(|| "neg C"))?;
             let neg_c_prep = P::prepare_g1(cs.ns(|| "C prep"), &neg_c)?;
 
-
-            let neg_psi =  g_psi.clone().negate(cs.ns(|| "neg inputs"))?;
+            let neg_psi = g_psi.clone().negate(cs.ns(|| "neg inputs"))?;
             let neg_psi_prep = P::prepare_g1(cs.ns(|| "inputs prep"), &neg_psi)?;
 
-            let neg_alpha =  pvk.alpha_g1.clone().negate(cs.ns(|| "neg alpha"))?;
+            let neg_alpha = pvk.alpha_g1.clone().negate(cs.ns(|| "neg alpha"))?;
             let neg_alpha_prep = P::prepare_g1(cs.ns(|| "neg alpah prep"), &neg_alpha)?;
 
-             P::miller_loop(
+            P::miller_loop(
                 cs.ns(|| "Miller loop"),
                 &[
-                    a_prep, //done
-                    neg_psi_prep, //done
-                    neg_c_prep, //done
-                    neg_alpha_prep, //done
+                    a_prep,         // done
+                    neg_psi_prep,   // done
+                    neg_c_prep,     // done
+                    neg_alpha_prep, // done
                 ],
                 &[
-                    b_prep, //done
-                    pvk.gamma_g2_pc.clone(), //done 
-                    pvk.delta_g2_pc.clone(), //done
-                    pvk.beta_g2_pc.clone(), //done
+                    b_prep,                  // done
+                    pvk.gamma_g2_pc.clone(), // done
+                    pvk.delta_g2_pc.clone(), // done
+                    pvk.beta_g2_pc.clone(),  // done
                 ],
             )?
-
         };
 
         let test = P::final_exponentiation(cs.ns(|| "Final Exp 1"), &test1_exp).unwrap();
-        
+
         let one = P::GTGadget::one(cs.ns(|| "GT One"))?;
         test.enforce_equal(cs.ns(|| "Test 1"), &one)?;
 
@@ -228,10 +223,10 @@ where
                 delta_g1,
                 delta_g2,
                 ic,
-
             } = vk.borrow().clone();
 
-            let alpha_g1 = P::G1Gadget::alloc(cs.ns(|| "alpha_g1"), || Ok(alpha_g1.into_projective()))?;
+            let alpha_g1 =
+                P::G1Gadget::alloc(cs.ns(|| "alpha_g1"), || Ok(alpha_g1.into_projective()))?;
             let beta_g1 =
                 P::G1Gadget::alloc(cs.ns(|| "beta_g1"), || Ok(beta_g1.into_projective()))?;
             let beta_g2 =
@@ -286,7 +281,8 @@ where
                 ic,
             } = vk.borrow().clone();
 
-            let alpha_g1 = P::G1Gadget::alloc_input(cs.ns(|| "alpha_g1"), || Ok(alpha_g1.into_projective()))?;
+            let alpha_g1 =
+                P::G1Gadget::alloc_input(cs.ns(|| "alpha_g1"), || Ok(alpha_g1.into_projective()))?;
             let beta_g1 =
                 P::G1Gadget::alloc_input(cs.ns(|| "beta_g1"), || Ok(beta_g1.into_projective()))?;
             let beta_g2 =
@@ -388,26 +384,14 @@ where
                 .beta_g1
                 .to_bytes(&mut cs.ns(|| "g_alpha_g1 to bytes"))?,
         );
-        bytes.extend_from_slice(
-            &self
-                .beta_g2
-                .to_bytes(&mut cs.ns(|| "h_beta_g2 to bytes"))?,
-        );
+        bytes.extend_from_slice(&self.beta_g2.to_bytes(&mut cs.ns(|| "h_beta_g2 to bytes"))?);
         bytes.extend_from_slice(
             &self
                 .gamma_g2
                 .to_bytes(&mut cs.ns(|| "g_gamma_g2 to bytes"))?,
         );
-        bytes.extend_from_slice(
-            &self
-                .delta_g1
-                .to_bytes(&mut cs.ns(|| "deltag1 to bytes"))?,
-        );
-        bytes.extend_from_slice(
-            &self
-                .delta_g2
-                .to_bytes(&mut cs.ns(|| "deltag2 to bytes"))?,
-        );
+        bytes.extend_from_slice(&self.delta_g1.to_bytes(&mut cs.ns(|| "deltag1 to bytes"))?);
+        bytes.extend_from_slice(&self.delta_g2.to_bytes(&mut cs.ns(|| "deltag2 to bytes"))?);
         for (i, q) in self.ic.iter().enumerate() {
             let mut cs = cs.ns(|| format!("Iteration {}", i));
             bytes.extend_from_slice(&q.to_bytes(&mut cs.ns(|| "q"))?);
@@ -545,10 +529,11 @@ mod test {
             let vk_gadget = TestVkGadget::alloc_input(cs.ns(|| "Vk"), || Ok(&params.vk)).unwrap();
             println!("Constraints after Vk Gadget {:?}", cs.num_constraints());
 
-//            checks if vk elements on curve  ... why is that necessary .. public input?
+            //            checks if vk elements on curve  ... why is that necessary ..
+            // public input?
             let proof_gadget =
                 TestProofGadget::alloc(cs.ns(|| "Proof"), || Ok(proof.clone())).unwrap();
-//           checks if on curve and if in correct subgroup
+            //           checks if on curve and if in correct subgroup
             <TestVerifierGadget as NIZKVerifierGadget<TestProofSystem, SW6>>::check_verify(
                 cs.ns(|| "Verify"),
                 &vk_gadget,
@@ -557,10 +542,11 @@ mod test {
             )
             .unwrap();
 
-            println!("Constraints after Verfier Gadget {:?}, for {:?} inputs ", cs
-                .num_constraints(),
-                     num_inputs);
-
+            println!(
+                "Constraints after Verfier Gadget {:?}, for {:?} inputs ",
+                cs.num_constraints(),
+                num_inputs
+            );
 
             if !cs.is_satisfied() {
                 println!("=========================================================");
