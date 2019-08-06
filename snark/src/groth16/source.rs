@@ -1,15 +1,3 @@
-// use pairing::{
-//     CurveAffine,
-//     CurveProjective,
-//     Engine
-// };
-
-// use pairing::ff::{
-//     PrimeField,
-//     Field,
-//     PrimeFieldRepr,
-//     ScalarEngine};
-
 // multiexp is using a technicality of used pippenger version in multiexp:
 // it says which bases exist ,since some polynomials might evaluate to zero 
 // (e.g., the variable is not a part of any constraints, for B - it only participates in A)

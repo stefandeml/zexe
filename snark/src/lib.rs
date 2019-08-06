@@ -23,7 +23,7 @@
 )]
 #![deny(
     const_err,
-    // unused_must_use,
+    unused_must_use,
     unused_mut,
     unused_unsafe,
     private_in_public,
@@ -39,17 +39,6 @@ pub mod gm17;
 pub mod groth16;
 
 use algebra::{Field, PairingEngine};
-
-// use pairing::ff::{
-//     PrimeField,
-//     Field,
-//     ScalarEngine
-// };
-// use pairing::{
-//     Engine as PairingEngine,
-//     CurveProjective,
-//     CurveAffine,
-// };
 
 use smallvec::{smallvec, SmallVec as StackVec};
 use std::{

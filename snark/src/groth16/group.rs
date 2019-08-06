@@ -1,13 +1,3 @@
-// use pairing::{
-//     Engine,
-//     CurveProjective
-// };
-
-// use pairing::ff::{
-//     Field, 
-//     PrimeField
-// };
-
 use algebra::{
     AffineCurve as CurveAffine, Field, PairingEngine as Engine, PrimeField, SquareRootField, ProjectiveCurve as CurveProjective,
 };
@@ -76,15 +66,12 @@ impl<E: Engine> Group for Scalar<E> {
         Scalar(E::Fr::zero())
     }
     fn group_mul_assign(&mut self, by: &E::Fr) {
-        // self.0.mul_assign(by);
         self.0 *= by;
     }
     fn group_add_assign(&mut self, other: &Self) {
-        // self.0.add_assign(&other.0);
         self.0 *= &other.0;
     }
     fn group_sub_assign(&mut self, other: &Self) {
-        // self.0.sub_assign(&other.0);
         self.0 *= &other.0;
     }
 }

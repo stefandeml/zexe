@@ -1,30 +1,6 @@
 
 use rand::Rng;
 
-// use std::sync::Arc;
-// use futures::Future;
-
-// use pairing::{
-//     Engine,
-//     CurveProjective,
-//     CurveAffine
-// };
-
-// use pairing::ff::{
-//     PrimeField,
-//     Field
-// };
-
-// use super::{
-//     ParameterSource,
-//     Proof
-// };
-
-// use super::domain::{
-//     EvaluationDomain,
-//     Scalar
-// };
-
 // use variable base scalar multiexp with density support:
 use super::multiexp::*;
 // use mock for multiexp worker

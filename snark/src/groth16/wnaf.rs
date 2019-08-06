@@ -10,7 +10,6 @@ pub(crate) fn wnaf_table<G: CurveProjective>(table: &mut Vec<G>, mut base: G, wi
     table.reserve(1 << (window - 1));
 
     let mut dbl = base;
-    // dbl.double();
     dbl.double_in_place();
 
     for _ in 0..(1 << (window - 1)) {
