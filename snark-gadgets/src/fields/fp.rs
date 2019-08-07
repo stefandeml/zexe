@@ -34,7 +34,7 @@ impl<E: PairingEngine> FpGadget<E> {
     }
 }
 
-
+/// create a public copy for an existing FpGadget
 impl<E: PairingEngine> FpGadget<E> {
 
     pub fn inputize<CS>(
