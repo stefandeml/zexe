@@ -1,10 +1,14 @@
 use crate::SynthesisError;
-use algebra::{bytes::ToBytes, bytes::FromBytes, curves::AffineCurve as CurveAffine, PairingCurve, PairingEngine};
+use algebra::{
+    bytes::{FromBytes, ToBytes},
+    curves::AffineCurve as CurveAffine,
+    PairingCurve, PairingEngine,
+};
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::{
     io::{self, Read, Result as IoResult, Write},
     sync::Arc,
 };
-use byteorder::{BigEndian, WriteBytesExt, ReadBytesExt};
 
 mod generator;
 mod group;
@@ -42,23 +46,38 @@ impl<E: PairingEngine> ToBytes for Proof<E> {
     }
 }
 
-impl<E:PairingEngine> FromBytes for Proof<E> {
+impl<E: PairingEngine> FromBytes for Proof<E> {
     #[inline]
     fn read<R: Read>(mut reader: R) -> IoResult<Self> {
-        let a = E::G1Affine::read(&mut reader).and_then(|e| if e.is_zero() {
-            Err(io::Error::new(io::ErrorKind::InvalidData, "point at infinity"))
-        } else {
-            Ok(e)
+        let a = E::G1Affine::read(&mut reader).and_then(|e| {
+            if e.is_zero() {
+                Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "point at infinity",
+                ))
+            } else {
+                Ok(e)
+            }
         })?;
-        let b = E::G2Affine::read(&mut reader).and_then(|e| if e.is_zero() {
-            Err(io::Error::new(io::ErrorKind::InvalidData, "point at infinity"))
-        } else {
-            Ok(e)
+        let b = E::G2Affine::read(&mut reader).and_then(|e| {
+            if e.is_zero() {
+                Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "point at infinity",
+                ))
+            } else {
+                Ok(e)
+            }
         })?;
-        let c = E::G1Affine::read(&mut reader).and_then(|e| if e.is_zero() {
-            Err(io::Error::new(io::ErrorKind::InvalidData, "point at infinity"))
-        } else {
-            Ok(e)
+        let c = E::G1Affine::read(&mut reader).and_then(|e| {
+            if e.is_zero() {
+                Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "point at infinity",
+                ))
+            } else {
+                Ok(e)
+            }
         })?;
 
         Ok(Self { a, b, c })
@@ -151,32 +170,37 @@ impl<E: PairingEngine> ToBytes for VerifyingKey<E> {
     }
 }
 
-impl<E:PairingEngine> FromBytes for VerifyingKey<E> {
+impl<E: PairingEngine> FromBytes for VerifyingKey<E> {
     #[inline]
     fn read<R: Read>(mut reader: R) -> IoResult<Self> {
-        let alpha_g1 = E::G1Affine::read(&mut reader).map_err(|e|
-            io::Error::new(io::ErrorKind::InvalidData, e))?;
-        let beta_g1 = E::G1Affine::read(&mut reader).map_err(|e|
-            io::Error::new(io::ErrorKind::InvalidData, e))?;
-        let beta_g2 = E::G2Affine::read(&mut reader).map_err(|e|
-            io::Error::new(io::ErrorKind::InvalidData, e))?;
-        let gamma_g2 = E::G2Affine::read(&mut reader).map_err(|e|
-            io::Error::new(io::ErrorKind::InvalidData, e))?;
-        let delta_g1 = E::G1Affine::read(&mut reader).map_err(|e|
-            io::Error::new(io::ErrorKind::InvalidData, e))?;
-        let delta_g2 = E::G2Affine::read(&mut reader).map_err(|e|
-            io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let alpha_g1 = E::G1Affine::read(&mut reader)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let beta_g1 = E::G1Affine::read(&mut reader)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let beta_g2 = E::G2Affine::read(&mut reader)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let gamma_g2 = E::G2Affine::read(&mut reader)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let delta_g1 = E::G1Affine::read(&mut reader)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let delta_g2 = E::G2Affine::read(&mut reader)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         let ic_len = reader.read_u32::<BigEndian>()? as usize;
         let mut ic = vec![];
 
         for _ in 0..ic_len {
             let g1 = E::G1Affine::read(&mut reader)
-                .map_err(|e|io::Error::new(io::ErrorKind::InvalidData, e))
-                .and_then(|e| if e.is_zero() {
-                    Err(io::Error::new(io::ErrorKind::InvalidData, "point at infinity"))
-                } else {
-                    Ok(e)
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+                .and_then(|e| {
+                    if e.is_zero() {
+                        Err(io::Error::new(
+                            io::ErrorKind::InvalidData,
+                            "point at infinity",
+                        ))
+                    } else {
+                        Ok(e)
+                    }
                 })?;
             ic.push(g1);
         }
@@ -188,7 +212,7 @@ impl<E:PairingEngine> FromBytes for VerifyingKey<E> {
             gamma_g2,
             delta_g1,
             delta_g2,
-            ic
+            ic,
         })
     }
 }
@@ -262,29 +286,38 @@ impl<E: PairingEngine> ToBytes for Parameters<E> {
     }
 }
 
-impl<E:PairingEngine> FromBytes for Parameters<E> {
+impl<E: PairingEngine> FromBytes for Parameters<E> {
     #[inline]
     fn read<R: Read>(mut reader: R) -> IoResult<Self> {
         let vk = VerifyingKey::read(&mut reader)?;
 
-
         let read_g1 = |mut r: &mut R| -> io::Result<E::G1Affine> {
             E::G1Affine::read(&mut r)
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
-                .and_then(|e| if e.is_zero() {
-                    Err(io::Error::new(io::ErrorKind::InvalidData, "point at infinity"))
-                } else {
-                    Ok(e)
+                .and_then(|e| {
+                    if e.is_zero() {
+                        Err(io::Error::new(
+                            io::ErrorKind::InvalidData,
+                            "point at infinity",
+                        ))
+                    } else {
+                        Ok(e)
+                    }
                 })
         };
 
         let read_g2 = |mut r: &mut R| -> io::Result<E::G2Affine> {
             E::G2Affine::read(&mut r)
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
-                .and_then(|e| if e.is_zero() {
-                    Err(io::Error::new(io::ErrorKind::InvalidData, "point at infinity"))
-                } else {
-                    Ok(e)
+                .and_then(|e| {
+                    if e.is_zero() {
+                        Err(io::Error::new(
+                            io::ErrorKind::InvalidData,
+                            "point at infinity",
+                        ))
+                    } else {
+                        Ok(e)
+                    }
                 })
         };
 
@@ -293,7 +326,6 @@ impl<E:PairingEngine> FromBytes for Parameters<E> {
         let mut a = vec![];
         let mut b_g1 = vec![];
         let mut b_g2 = vec![];
-
 
         {
             let len = reader.read_u32::<BigEndian>()? as usize;
@@ -331,12 +363,12 @@ impl<E:PairingEngine> FromBytes for Parameters<E> {
         }
 
         Ok(Parameters {
-            vk: vk,
-            h: Arc::new(h),
-            l: Arc::new(l),
-            a: Arc::new(a),
+            vk,
+            h:    Arc::new(h),
+            l:    Arc::new(l),
+            a:    Arc::new(a),
             b_g1: Arc::new(b_g1),
-            b_g2: Arc::new(b_g2)
+            b_g2: Arc::new(b_g2),
         })
     }
 }
